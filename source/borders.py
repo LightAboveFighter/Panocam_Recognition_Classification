@@ -8,8 +8,10 @@ from shapely import LineString
 class Border:
 
     def __init__(self, accuracy: int, point1: tuple[float], point2: tuple[float]):
+        """in и out определяются по часовой стрелке от первой точки"""
         self.contain = 0
         self.nearby = {}
+        self.intersected = False
 
         self.p1 = np.array(point1)
         self.p2 = np.array(point2)
@@ -65,12 +67,12 @@ class Border:
     def __update(self, id: int, point: tuple[float]):
         if not self.nearby.get(id, False):
             self.nearby[id] = deque(maxlen=2)
-            # self.nearby[id].put(0)
         self.nearby[id].append(point)
         if len(self.nearby[id]) == 2:
             id_line = LineString(list(self.nearby[id]))
             if id_line.intersects(self.border):
                 self.contain += self.__point_loc(self.nearby[id][0])
+                self.intersected = True
 
     def update(self, id: int, point: tuple[float]):
         if not self.under_surveillance(point):
@@ -79,13 +81,18 @@ class Border:
         self.__update(id, point)
 
     def draw(self, im) -> np.ndarray:
+        if self.intersected:
+            color = (255, 255, 255)
+            self.intersected = False
+        else:
+            color = (255, 0, 0)
         return cv.putText(
-            cv.line(im, self.p1, self.p2, (255, 0, 0), 2),
+            cv.line(im, self.p1, self.p2, color, 2),
             str(self.contain),
             self.p1,
             cv.FONT_HERSHEY_COMPLEX,
             2,
-            (255, 0, 0),
+            color,
             2,
         )
 
