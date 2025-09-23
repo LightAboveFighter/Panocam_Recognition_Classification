@@ -29,7 +29,9 @@ def save_tracked_video(model_name: str, video_name: str, tracks: list):
     fourcc = cv.VideoWriter_fourcc(*"FMP4")
     vid_in = cv.VideoCapture(f"materials/in/{video_name}")
     first_pict = vid_in.read()[1]
-    borders = Borders("materials/in/borders.yaml")
+    borders = Borders(
+        "materials/in/borders.yaml", "materials/out/Incident.txt", video_name
+    )
     # in и out определяются по часовой стрелке от первой точки
 
     vid = cv.VideoWriter(
@@ -53,6 +55,7 @@ def save_tracked_video(model_name: str, video_name: str, tracks: list):
                 result.boxes.cls.cpu().numpy() if result.boxes.id is not None else None
             )
 
+            point_update_pack = []
             for i, inf in enumerate(zip(boxes, classes)):
                 box, cls = inf
 
@@ -76,7 +79,8 @@ def save_tracked_video(model_name: str, video_name: str, tracks: list):
                 )
 
                 if ids is not None:
-                    borders.update(int(ids[i]), center)
+                    point_update_pack.append((int(ids[i]), center))
+            borders.update(point_update_pack)
 
         im = borders.draw(im)
         im = cv.putText(
