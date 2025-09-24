@@ -62,7 +62,7 @@ class Border:
             .astype(np.int32)
         )
 
-    def under_surveillance(self, point) -> bool:
+    def under_surveillance(self, point: tuple[float]) -> bool:
         point_tuple = (int(point[0]), int(point[1]))
         return (cv.pointPolygonTest(self.field_in, point_tuple, False) == 1) or (
             cv.pointPolygonTest(self.field_out, point_tuple, False) == 1
@@ -88,7 +88,7 @@ class Border:
                 self.contain += self.__point_loc(self.nearby[id][0])
                 self.intersected = True
 
-    def update(self, ids_points: list[tuple[int, tuple]]):
+    def update(self, ids_points: list[tuple[int, tuple[float]]]):
         for id, point in ids_points:
             if not self.under_surveillance(point):
                 self.nearby.pop(id, None)
@@ -99,7 +99,7 @@ class Border:
             int(self.contain > 1) + int(self.contain > 2)
         )
 
-    def get_incident(self) -> tuple[int, tuple]:
+    def get_incident(self) -> tuple[int, tuple[IncidentLevel]]:
         return (self.id, self.incident_level)
 
     def draw(self, im) -> np.ndarray:
@@ -163,7 +163,7 @@ class Borders:
             for border in data
         ]
 
-    def update(self, ids_points: list[tuple[int, tuple]]):
+    def update(self, ids_points: list[tuple[int, tuple[float]]]):
         for border in self.borders:
             border.update(ids_points)
 
@@ -182,7 +182,7 @@ class Borders:
             )
             self.incident_id += 1
 
-    def draw(self, im) -> np.ndarray:
+    def draw(self, im: np.ndarray) -> np.ndarray:
 
         incident_level = IncidentLevel.NO_INCIDENT
         for border in self.borders:
