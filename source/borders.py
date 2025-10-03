@@ -3,7 +3,6 @@ import numpy as np
 import yaml
 from collections import deque
 from shapely import LineString
-from datetime import datetime
 from enum import Enum
 
 
@@ -11,6 +10,7 @@ class IncidentLevel(Enum):
     NO_INCIDENT = 0
     CUSTOMERS_2 = 1
     CUSTOMERS_MORE_THAN_2 = 2
+    CLOSED_EMPTY = 3
 
 
 class Border:
@@ -127,81 +127,3 @@ class Border:
             number_color,
             2,
         )
-
-
-class Borders:
-    borders: list[Border]
-    incident_id: int
-
-    def __init__(
-        self, config_path: str, incidents_path: str = None, video_name: str = None
-    ):
-        """
-        Args:
-            config_path (str): from where lines will be loaded
-            incidents_path (str): file where logged incidents will be saved
-            video_name (str): video's name, that will be used in logs
-        """
-
-        with open(config_path, "r") as file:
-            data = yaml.safe_load(file)
-
-        self.incident_id = 1
-        if not incidents_path is None:
-            self.incidents_file = open(incidents_path, "w")
-            self.video_name = video_name
-        else:
-            self.incidents_file = None
-
-        self.borders = [
-            Border(
-                border["room_id"],
-                border["accuracy"],
-                border["point1"],
-                border["point2"],
-            )
-            for border in data
-        ]
-
-    def update(self, ids_points: list[tuple[int, tuple[float]]]):
-        for border in self.borders:
-            border.update(ids_points)
-
-    def write_incedents(self):
-
-        for border in self.borders:
-            room_id, incident_levels = border.get_incident()
-            act_datetime = datetime.now()
-            incident_name = "People inside: "
-            if incident_levels[0] == incident_levels[1]:
-                continue
-            incident_name += str(border.contain)
-
-            self.incidents_file.write(
-                f"{act_datetime.date()} {str(act_datetime.time())[:-4]} RoomID:{room_id} EventID:{self.incident_id} {incident_name} [{incident_levels[1].value}] {self.video_name}\n"
-            )
-            self.incident_id += 1
-
-    def draw(self, im: np.ndarray) -> np.ndarray:
-
-        incident_level = IncidentLevel.NO_INCIDENT
-        for border in self.borders:
-            im = border.draw(im)
-        for border in self.borders:
-            incident_level = IncidentLevel(
-                max(incident_level.value, border.incident_level[1].value)
-            )
-            if incident_level == IncidentLevel.CUSTOMERS_MORE_THAN_2:
-                break
-        if not self.incidents_file is None:
-            self.write_incedents()
-
-        lamp_color = (0, 255, 73)  # green
-        if incident_level == IncidentLevel.CUSTOMERS_2:
-            lamp_color = (0, 255, 255)  # yellow
-        elif incident_level == IncidentLevel.CUSTOMERS_MORE_THAN_2:
-            lamp_color = (0, 0, 255)  # red
-
-        im = cv.circle(im, (im.shape[1] - 20, 20), 10, lamp_color, 17)
-
-        return im

@@ -1,15 +1,16 @@
 from ultralytics import YOLO
 import cv2 as cv
-from borders import Borders
+from instrument_manager import InstrumentManager
 
 
 def track_video(
     model_name: str,
     tracker_name: str,
     video: cv.VideoCapture,
-    borders: Borders,
+    manager: InstrumentManager,
     new_video: cv.VideoWriter = None,
     show: bool = False,
+    verbose=False,
 ):
 
     model = YOLO(f"materials/trained_models/{model_name}")
@@ -21,10 +22,7 @@ def track_video(
             break
 
         results = model.track(
-            frame,
-            show=False,
-            persist=True,
-            tracker=tracker_name,
+            frame, show=False, persist=True, tracker=tracker_name, verbose=verbose
         )
 
         for result in results:
@@ -43,6 +41,9 @@ def track_video(
                 )
 
                 point_update_pack = []
+                if boxes is None or classes is None:
+                    continue
+
                 for i, inf in enumerate(zip(boxes, classes)):
                     box, cls = inf
 
@@ -67,9 +68,9 @@ def track_video(
 
                     if ids is not None:
                         point_update_pack.append((int(ids[i]), center))
-                borders.update(point_update_pack)
+                manager.update(frame, point_update_pack)
 
-            frame = borders.draw(frame)
+            frame = manager.draw(frame)
             frame = cv.putText(
                 frame,
                 f"{people_count} people",
@@ -100,7 +101,11 @@ tracker_name = "bytetrack.yaml"
 
 video_in = cv.VideoCapture(f"materials/in/{video_name}")
 first_pict = video_in.read()[1]
-borders = Borders("materials/in/borders.yaml", "materials/out/Incident.txt", video_name)
+ins_manager = InstrumentManager(
+    "materials/in/borders.yaml", "materials/out/Incident.txt", video_name
+)
+
+ins_manager.add_closed_example(7, cv.imread("materials/in/box_close.png"))
 # in и out определяются по часовой стрелке от первой точки
 
 video_out = cv.VideoWriter(
@@ -111,7 +116,15 @@ video_out = cv.VideoWriter(
 )
 
 
-track_video(model_name, tracker_name, video_in, borders, video_out, True)
+track_video(
+    model_name,
+    tracker_name,
+    video_in,
+    ins_manager,
+    new_video=video_out,
+    show=False,
+    verbose=False,
+)
 
 video_out.release()
 video_in.release()
