@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import QFileDialog, QMainWindow, QApplication
 from PyQt6.QtGui import QImage, QPixmap
 from start_page import Ui_MainWindow
-import pathlib
+from pathlib import Path
 
 
 class MainWindow(QMainWindow):
@@ -12,15 +12,30 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
+        filename_last_path = Path("GUI/user_files/last_video_folder.txt")
+        if not filename_last_path.parent.exists():
+            Path(filename_last_path).parent.mkdir()
+        if not filename_last_path.exists():
+            self.last_folder = None
+            filename_last_path.touch()
+        else:
+            with open(str(filename_last_path), "r") as file:
+                self.last_folder = file.readline()
+
         self.ui.button_load_video.clicked.connect(self.open_video_file)
         self.ui.link_video_edit.enterKeyPressed.connect(self.view_frame_to_config)
         self.ui.error_message.setVisible(False)
 
     def open_video_file(self):
+        if self.last_folder is None:
+            folder = Path().cwd()
+        else:
+            folder = self.last_folder
+
         path = QFileDialog.getOpenFileName(
             self,
             "Выберите видео",
-            str(pathlib.Path().cwd().parent),
+            str(folder),
             "Видео файлы (*.mp4 *.avi)",
         )[0]
 
@@ -30,6 +45,10 @@ class MainWindow(QMainWindow):
         if len(path) == 0:
             return
         if self.ui.page_edit_config.set_path(path):
+            self.last_folder = str(Path(path).parent)
+            with open("GUI/user_files/last_video_folder.txt", "w") as file:
+                file.write(self.last_folder)
+
             self.ui.stackedWidget.setCurrentIndex(1)
         else:
             self.ui.error_message.setVisible(True)
