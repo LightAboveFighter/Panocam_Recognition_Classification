@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         self.ui.button_load_video.clicked.connect(self.open_video_file)
         self.ui.link_video_edit.enterKeyPressed.connect(self.view_frame_to_config)
         self.ui.error_message.setVisible(False)
+        self.aspect_ratio = None
 
     def open_video_file(self):
         if self.last_folder is None:
@@ -50,8 +51,38 @@ class MainWindow(QMainWindow):
                 file.write(self.last_folder)
 
             self.ui.stackedWidget.setCurrentIndex(1)
+            self.resize(
+                min(self.width(), self.height()),
+                int(
+                    min(self.width(), self.height())
+                    / self.ui.page_edit_config.aspect_ratio
+                ),
+            )
+            self.aspect_ratio = self.width() / self.height()
         else:
             self.ui.error_message.setVisible(True)
+
+    def resizeEvent(self, event):
+        if self.ui.stackedWidget.currentIndex() == 1:
+            if hasattr(self.ui.page_edit_config, "aspect_ratio"):
+                curr_aspect_ratio = event.size().width() / event.size().height()
+                if (
+                    abs(self.ui.page_edit_config.aspect_ratio - curr_aspect_ratio)
+                    > 0.01
+                ):
+                    new_height = event.size().height()
+                    new_width = event.size().width()
+                    if new_width / self.ui.page_edit_config.aspect_ratio > new_height:
+                        new_width = int(
+                            new_height / self.ui.page_edit_config.aspect_ratio
+                        )
+                    else:
+                        new_height = int(
+                            new_width * self.ui.page_edit_config.aspect_ratio
+                        )
+                    self.resize(new_width, new_height)
+
+        return super().resizeEvent(event)
 
 
 if __name__ == "__main__":

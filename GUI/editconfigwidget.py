@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
 )
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor
-from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
+from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent, QRectF
 from enum import Enum
 from pathlib import Path
 import yaml
@@ -175,6 +175,20 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.verticalScrollBar().installEventFilter(
             self.scrollbar_event_filter
         )
+        self.ui.frame_viewer.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        self.ui.frame_viewer.setResizeAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        self.ui.frame_viewer.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.ui.frame_viewer.setScene(self.scene)
+        self.ui.frame_viewer.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+        )
+        self.ui.frame_viewer.setOptimizationFlag(
+            QGraphicsView.OptimizationFlag.DontSavePainterState, True
+        )
         self.set_drag_on()
 
         filename_last_path = Path("GUI/user_files/last_config_folder.txt")
@@ -187,12 +201,10 @@ class EditConfigWidget(QWidget):
             with open(str(filename_last_path), "r") as file:
                 self.last_folder = file.readline()
 
-        self.ui.frame_viewer.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.ui.frame_viewer.setScene(self.scene)
         self.video_cap = None
         self.data = []
         self.curr_id = 0
-        self.curr_zoom = 1.0
+        self.curr_scale = 1.0
 
     def set_path(self, path: str):
         self.video_cap = cv.VideoCapture(path)
@@ -206,9 +218,13 @@ class EditConfigWidget(QWidget):
         return success
 
     def set_scene(self, frame):
+        self.scene.clear()
         self.scene.addPixmap(self.current_frame)
         self.scene.setSceneRect(
-            0, 0, self.current_frame.width(), self.current_frame.height()
+            0,
+            0,
+            self.current_frame.width(),
+            self.current_frame.height(),
         )
         self.aspect_ratio = frame.shape[0] / frame.shape[1]
 
@@ -226,21 +242,39 @@ class EditConfigWidget(QWidget):
             )
         )
 
-    def resizeEvent(self, event):
-        self.scene.clear()
-
-        new_width = event.size().width()
-        new_heigth = self.heightForWidth(new_width)
-        self.resize(new_width, new_heigth)
-
-        self.scene.setSceneRect(0, 0, self.width(), self.height())
-        self.scene.addPixmap(
-            self.current_frame.scaled(
-                self.width(), self.height(), Qt.AspectRatioMode.KeepAspectRatio
-            )
+    def update_view(self):
+        self.ui.frame_viewer.fitInView(
+            self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
         )
-        self.scene.draw_objects(self.get_rescaled_data(self.data))
-        super().resizeEvent(event)
+
+    def showEvent(self, event):
+        # ensure that the update only happens when showing the window
+        # programmatically, otherwise it also happen when unminimizing the
+        # window or changing virtual desktop
+        if not event.spontaneous():
+            self.update_view()
+
+    def resizeEvent(self, event):
+        self.update_view()
+        return super().resizeEvent(event)
+
+    def wheelEvent(self, event):
+        zoom_factor = 1.1
+        max_zoom = 5.0
+        min_zoom = 1.0
+
+        event.accept()
+        if event.angleDelta().y() < 0:
+            if self.curr_scale * zoom_factor < min_zoom:
+                zoom_factor = 1.0
+            else:
+                zoom_factor = 1 / zoom_factor
+        if event.angleDelta().y() > 0:
+            if self.curr_scale >= max_zoom:
+                zoom_factor = max_zoom / self.curr_scale
+
+        self.curr_scale *= zoom_factor
+        self.ui.frame_viewer.scale(zoom_factor, zoom_factor)
 
     def get_rescaled_data(self, data):
         zoom_val = self.zoom_value()
@@ -258,21 +292,6 @@ class EditConfigWidget(QWidget):
             ]
             rescaled_data.append(res)
         return rescaled_data
-
-    def wheelEvent(self, event):
-        zoom_factor = 1.1
-        if event.angleDelta().y() < 0:
-            zoom_factor = 1 / zoom_factor
-            if zoom_factor / self.curr_zoom > 1:
-                zoom_factor = 1
-        else:
-            if zoom_factor / self.curr_zoom < 0.2:
-                zoom_factor = 1
-
-        self.curr_zoom *= zoom_factor
-
-        self.ui.frame_viewer.scale(zoom_factor, zoom_factor)
-        return super().wheelEvent(event)
 
     def heightForWidth(self, width):
         return int(width / self.aspect_ratio)
@@ -364,7 +383,6 @@ class EditConfigWidget(QWidget):
 
         approved = []
         resized = []
-        zoom_val = self.scene.width() / self.current_frame.width()
         for obj in data:
             x1, y1 = obj["point1"]
             if x1 > self.current_frame.width() or y1 > self.current_frame.height():
@@ -379,8 +397,3 @@ class EditConfigWidget(QWidget):
             self.curr_id = max(self.curr_id, obj["room_id"])
         self.data.extend(approved)
         self.scene.draw_objects(resized)
-
-    # def fit_image(self):
-    #     # if self.pixmap_item is not None:
-    #         # Подгоняем изображение с сохранением пропорций:cite[1]
-    #     self.ui.frame_viewer.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
