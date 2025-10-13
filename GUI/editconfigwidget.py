@@ -198,7 +198,7 @@ class EditConfigWidget(QWidget):
             self.last_folder = None
             filename_last_path.touch()
         else:
-            with open(str(filename_last_path), "r") as file:
+            with filename_last_path.open("r") as file:
                 self.last_folder = file.readline()
 
         self.video_cap = None

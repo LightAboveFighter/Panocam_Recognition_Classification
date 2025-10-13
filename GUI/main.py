@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
             self.last_folder = None
             filename_last_path.touch()
         else:
-            with open(str(filename_last_path), "r") as file:
+            with filename_last_path.open("r") as file:
                 self.last_folder = file.readline()
 
         self.ui.button_load_video.clicked.connect(self.open_video_file)
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
             return
         if self.ui.page_edit_config.set_path(path):
             self.last_folder = str(Path(path).parent)
-            with open("GUI/user_files/last_video_folder.txt", "w") as file:
+            with Path("GUI/user_files/last_video_folder.txt").open("w") as file:
                 file.write(self.last_folder)
 
             self.ui.stackedWidget.setCurrentIndex(1)
