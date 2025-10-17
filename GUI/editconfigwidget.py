@@ -58,7 +58,7 @@ class DrawableGraphicsScene(QGraphicsScene):
             if obj_type == "border":
                 drawing = QGraphicsLineItem(x1, y1, x2, y2)
             elif obj_type == "detect_window":
-                drawing = QGraphicsRectItem(x1, y1, x1 - x2, y1 - y2)
+                drawing = QGraphicsRectItem(x1, y1, abs(x1 - x2), abs(y1 - y2))
             else:
                 return
             if not drawing is None:
