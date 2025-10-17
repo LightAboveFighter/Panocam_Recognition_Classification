@@ -1,5 +1,6 @@
 import cv2 as cv
 from edit_config_class import Ui_Form
+from dialog import Dialog
 from PyQt6.QtWidgets import (
     QGraphicsScene,
     QWidget,
@@ -9,10 +10,17 @@ from PyQt6.QtWidgets import (
     QFileDialog,
 )
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor
-from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent, QRectF
+from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
 from pathlib import Path
 import yaml
+
+import sys
+
+# Добавляем путь к директории выше текущей
+print(str(Path().cwd().parent / "tracker.py"))
+sys.path.insert(0, str(Path().cwd().parent))
+from ..source.tracker import Tracker
 
 
 class ToolType(Enum):
@@ -161,6 +169,7 @@ class EditConfigWidget(QWidget):
         self.ui.action_save_config.triggered.connect(self.save_config)
         self.ui.button_load_config.clicked.connect(self.open_config)
         self.ui.action_open_config.triggered.connect(self.open_config)
+        self.ui.button_process.clicked.connect(self.process)
 
         self.ui.frame_viewer.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -397,3 +406,19 @@ class EditConfigWidget(QWidget):
             self.curr_id = max(self.curr_id, obj["room_id"])
         self.data.extend(approved)
         self.scene.draw_objects(resized)
+
+    def process(self):
+        show = Dialog(self, "Show processing?").get_answer()
+
+        video_out = cv.VideoWriter(f"materials/out/1.avi")
+
+        tracker = Tracker("yolo11n.pt", self.data, video_out)
+
+        while self.video_cap.isOpened():
+            success, frame = self.video_cap.read()
+            if not success:
+                continue
+
+            frame = tracker.track_frame(frame)
+            if show:
+                self.change_frame(frame)
