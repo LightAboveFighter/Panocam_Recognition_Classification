@@ -9,18 +9,20 @@ from PyQt6.QtWidgets import (
     QGraphicsRectItem,
     QFileDialog,
 )
-from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor
+from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
 from pathlib import Path
 import yaml
+from numpy.random import randint
+from ngon_item import NgonItem
 
 import sys
 
-# Добавляем путь к директории выше текущей
-print(str(Path().cwd().parent / "tracker.py"))
-sys.path.insert(0, str(Path().cwd().parent))
-from ..source.tracker import Tracker
+# # Добавляем путь к директории выше текущей
+# print(str(Path().cwd().parent / "tracker.py"))
+# sys.path.insert(0, str(Path().cwd().parent))
+# from ..source.tracker import Tracker
 
 
 class ToolType(Enum):
@@ -39,18 +41,24 @@ class ScrollBarWheelFilter(QObject):
 
 
 class DrawableGraphicsScene(QGraphicsScene):
-    drawing_completed = pyqtSignal(
-        int, int, int, int, int
-    )  # x1, y1, x2, y2, ToolType.value
+    border_completed = pyqtSignal(int, int, int, int)  # x1, y1, x2, y2
+    detect_window_completed = pyqtSignal(
+        int, int, int, int, int, int, int, int
+    )  # x1, y1, x2, y2, x3, y3, x4, y4
+    drawing_interrupted = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_tool = ToolType.NoDrawing  # rectangle, line
+        self.current_tool = ToolType.NoDrawing
         self.start_point = QPointF()
         self.current_item = None
-        self.touched = False
-        self.pen = QPen(QColor(255, 0, 0), 2)
+        self.touched = 0
         self.second_point = (0, 0)
+
+    def set_color(self):
+        r, g, b = randint(20, 255), randint(20, 255), randint(20, 255)
+        self.pen = QPen(QColor(r - 10, g - 10, b - 10), 2)
+        self.brush = QBrush(QColor(r, g, b, 128))
 
     def set_current_tool(self, tool: ToolType):
         self.current_tool = tool
@@ -63,10 +71,14 @@ class DrawableGraphicsScene(QGraphicsScene):
             x2, y2 = obj["point2"]
 
             drawing = None
+            self.set_color()
             if obj_type == "border":
                 drawing = QGraphicsLineItem(x1, y1, x2, y2)
             elif obj_type == "detect_window":
-                drawing = QGraphicsRectItem(x1, y1, abs(x1 - x2), abs(y1 - y2))
+                x3, y3 = obj["point3"]
+                x4, y4 = obj["point4"]
+                drawing = NgonItem(4, x1, y1, x2, y2, x3, y3, x4, y4)
+                drawing.setBrush(self.brush)
             else:
                 return
             if not drawing is None:
@@ -78,11 +90,12 @@ class DrawableGraphicsScene(QGraphicsScene):
             if self.current_tool == ToolType.NoDrawing:
                 return super().mouseReleaseEvent(event)
 
-            self.touched = True
+            self.touched += 1
             self.start_point = event.scenePos()
             self.second_point = (int(self.start_point.x()), int(self.start_point.y()))
 
             if self.current_tool == ToolType.Border:
+                self.set_color()
                 self.current_item = QGraphicsLineItem()
                 self.current_item.setLine(
                     self.start_point.x(),
@@ -90,40 +103,72 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.start_point.x(),
                     self.start_point.y(),
                 )
-            elif self.current_tool == ToolType.DetectWindow:
-                self.current_item = QGraphicsRectItem()
-                self.current_item.setRect(
-                    self.start_point.x(), self.start_point.y(), 0, 0
-                )
-
-            if self.current_item:
                 self.current_item.setPen(self.pen)
                 self.addItem(self.current_item)
+            elif self.current_tool == ToolType.DetectWindow:
+                if not self.current_item:
+                    self.set_color()
+                    self.current_item = NgonItem(
+                        4, *[self.start_point for _ in range(4)]
+                    )
+                    self.current_item.setPen(self.pen)
+                    self.current_item.setBrush(self.brush)
+                    self.addItem(self.current_item)
+                else:
+                    self.current_item.setPoints(
+                        *[
+                            *self.current_item.points[: self.touched - 1],
+                            *[self.start_point for _ in range(5 - self.touched)],
+                        ],
+                    )
+
         elif event.button() == Qt.MouseButton.RightButton:
-            if self.current_item:
+            if self.current_tool == ToolType.Border:
                 self.removeItem(self.current_item)
-            self.current_tool = ToolType.NoDrawing
-            self.current_item = None
-            self.drawing_completed.emit(0, 0, 0, 0, ToolType.NoDrawing.value)
-            self.touched = False
+                self.current_tool = ToolType.NoDrawing
+                self.current_item = None
+                self.drawing_interrupted.emit()
+                self.touched = 0
+            else:
+                self.touched -= 1
+                self.start_point = event.scenePos()
+                if self.touched == 0:
+                    self.removeItem(self.current_item)
+                    self.current_item = None
+                    self.current_tool = ToolType.NoDrawing
+                    self.drawing_interrupted.emit()
+                elif self.current_item:
+                    self.current_item.setPoints(
+                        *[
+                            *self.current_item.points[: self.touched],
+                            *[self.start_point for _ in range(4 - self.touched)],
+                        ],
+                    )
 
         return super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if not self.touched:
+        if self.touched == 0:
             return super().mousePressEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             if self.current_tool != ToolType.NoDrawing:
-                self.drawing_completed.emit(
-                    int(self.start_point.x()),
-                    int(self.start_point.y()),
-                    *self.second_point,
-                    self.current_tool.value,
-                )
+                if self.current_tool == ToolType.Border:
+                    self.border_completed.emit(
+                        int(self.start_point.x()),
+                        int(self.start_point.y()),
+                        *self.second_point,
+                    )
 
-                self.touched = False
-                self.current_tool = ToolType.NoDrawing
-                self.current_item = None
+                    self.touched = 0
+                    self.current_tool = ToolType.NoDrawing
+                    self.current_item = None
+                elif self.current_tool == ToolType.DetectWindow:
+                    if self.touched == 4:
+                        self.detect_window_completed.emit(*self.current_item.get_xy())
+                        self.touched = 0
+                        self.current_tool = ToolType.NoDrawing
+                        self.current_item = None
+
         return super().mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -132,14 +177,12 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.second_point = (int(current_point.x()), int(current_point.y()))
 
             if self.current_tool == ToolType.DetectWindow:
-                rect = self.current_item.rect()
-                rect.setCoords(
-                    min(self.start_point.x(), current_point.x()),
-                    min(self.start_point.y(), current_point.y()),
-                    max(self.start_point.x(), current_point.x()),
-                    max(self.start_point.y(), current_point.y()),
+                self.current_item.setPoints(
+                    *[
+                        *self.current_item.points[: self.touched],
+                        *[current_point for _ in range(4 - self.touched)],
+                    ],
                 )
-                self.current_item.setRect(rect)
             elif self.current_tool == ToolType.Border:
                 self.current_item.setLine(
                     self.start_point.x(),
@@ -162,13 +205,15 @@ class EditConfigWidget(QWidget):
 
         self.scene = DrawableGraphicsScene()
 
-        self.scene.drawing_completed.connect(self.get_points)
+        self.scene.border_completed.connect(self.get_border)
+        self.scene.detect_window_completed.connect(self.get_detect_window)
+        self.scene.drawing_interrupted.connect(self.stop_drawing)
         self.ui.button_add_border.clicked.connect(self.draw_border)
         self.ui.button_add_detect_window.clicked.connect(self.draw_spectator)
         self.ui.button_save_config.clicked.connect(self.save_config)
         self.ui.action_save_config.triggered.connect(self.save_config)
-        self.ui.button_load_config.clicked.connect(self.open_config)
-        self.ui.action_open_config.triggered.connect(self.open_config)
+        self.ui.button_load_config.clicked.connect(self.load_config)
+        self.ui.action_open_config.triggered.connect(self.load_config)
         self.ui.button_process.clicked.connect(self.process)
 
         self.ui.frame_viewer.setHorizontalScrollBarPolicy(
@@ -198,7 +243,7 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setOptimizationFlag(
             QGraphicsView.OptimizationFlag.DontSavePainterState, True
         )
-        self.set_drag_on()
+        self.set_drag(True)
 
         filename_last_path = Path("GUI/user_files/last_config_folder.txt")
         if not filename_last_path.parent.exists():
@@ -310,47 +355,74 @@ class EditConfigWidget(QWidget):
 
     def draw_border(self):
         self.scene.set_current_tool(ToolType.Border)
-        self.ui.frame_viewer.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.set_drag(False)
 
     def draw_spectator(self):
         self.scene.set_current_tool(ToolType.DetectWindow)
-        self.ui.frame_viewer.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.set_drag(False)
+        self.ui.frame_viewer.setMouseTracking(True)
 
-    def get_points(self, p1_x: int, p1_y: int, p2_x: int, p2_y: int, tool_type: int):
-        if tool_type == ToolType.NoDrawing.value:
-            self.set_drag_on()
-            return
+    def stop_drawing(self):
+        self.set_drag(True)
+        self.ui.frame_viewer.setMouseTracking(False)
 
+    def get_border(self, p1_x: int, p1_y: int, p2_x: int, p2_y: int):
         zoom_val = self.zoom_value()
         pack = (
             [int(p1_x / zoom_val), int(p1_y / zoom_val)],
             [int(p2_x / zoom_val), int(p2_y / zoom_val)],
         )
-        if tool_type == ToolType.Border.value:
-            self.data.append(
-                {
-                    "type": "border",
-                    "room_id": self.curr_id,
-                    "accuracy": 20,
-                    "point1": pack[0],
-                    "point2": pack[1],
-                }
-            )
-        elif tool_type == ToolType.DetectWindow.value:
-            self.data.append(
-                {
-                    "type": "detect_window",
-                    "room_id": self.curr_id,
-                    "accuracy": 20,
-                    "point1": pack[0],
-                    "point2": pack[1],
-                }
-            )
-        self.set_drag_on()
+        self.data.append(
+            {
+                "type": "border",
+                "room_id": self.curr_id,
+                "accuracy": 20,
+                "point1": pack[0],
+                "point2": pack[1],
+            }
+        )
+
+        self.set_drag(True)
         self.curr_id += 1
 
-    def set_drag_on(self):
-        self.ui.frame_viewer.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+    def get_detect_window(
+        self,
+        p1_x: int,
+        p1_y: int,
+        p2_x: int,
+        p2_y: int,
+        p3_x: int,
+        p3_y: int,
+        p4_x: int,
+        p4_y: int,
+    ):
+        zoom_val = self.zoom_value()
+        pack = (
+            [int(p1_x / zoom_val), int(p1_y / zoom_val)],
+            [int(p2_x / zoom_val), int(p2_y / zoom_val)],
+            [int(p3_x / zoom_val), int(p3_y / zoom_val)],
+            [int(p4_x / zoom_val), int(p4_y / zoom_val)],
+        )
+        self.data.append(
+            {
+                "type": "detect_window",
+                "room_id": self.curr_id,
+                "accuracy": 20,
+                "point1": pack[0],
+                "point2": pack[1],
+                "point3": pack[2],
+                "point4": pack[3],
+            }
+        )
+        self.stop_drawing()
+        self.curr_id += 1
+
+    def set_drag(self, is_active: bool):
+        if is_active:
+            mode = QGraphicsView.DragMode.ScrollHandDrag
+        else:
+            mode = QGraphicsView.DragMode.NoDrag
+        self.ui.frame_viewer.setDragMode(mode)
 
     def save_config(self):
 
@@ -372,7 +444,7 @@ class EditConfigWidget(QWidget):
         with open(path, "w+") as file:
             yaml.dump(self.data, file)
 
-    def open_config(self):
+    def load_config(self):
         if self.last_folder is None:
             folder = Path().cwd()
         else:
@@ -410,15 +482,15 @@ class EditConfigWidget(QWidget):
     def process(self):
         show = Dialog(self, "Show processing?").get_answer()
 
-        video_out = cv.VideoWriter(f"materials/out/1.avi")
+        # video_out = cv.VideoWriter(f"materials/out/1.avi")
 
-        tracker = Tracker("yolo11n.pt", self.data, video_out)
+        # tracker = Tracker("yolo11n.pt", self.data, video_out)
 
-        while self.video_cap.isOpened():
-            success, frame = self.video_cap.read()
-            if not success:
-                continue
+        # while self.video_cap.isOpened():
+        #     success, frame = self.video_cap.read()
+        #     if not success:
+        #         continue
 
-            frame = tracker.track_frame(frame)
-            if show:
-                self.change_frame(frame)
+        #     frame = tracker.track_frame(frame)
+        #     if show:
+        #         self.change_frame(frame)
