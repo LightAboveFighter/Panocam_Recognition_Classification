@@ -9,10 +9,15 @@ import cv2 as cv
 class InstrumentManager:
     objs = dict[int, tuple[Border, DetectWindow]]
 
-    def __init__(self, config_path: str, incidents_path: str, video_name: str):
+    def __init__(
+        self,
+        config_path: str = None,
+        incidents_path: str = None,
+        video_name: str = None,
+    ):
         """
         Args:
-            config_path (str): from where lines will be loaded
+            config_path (str): from where lines will be loaded. You also can load data lated with load_data() method
             incidents_path (str): file where logged incidents will be saved
             video_name (str): video's name, that will be used in logs
         """
@@ -20,16 +25,20 @@ class InstrumentManager:
         self.incident_id = 1
         if not incidents_path is None:
             self.incidents_file = open(incidents_path, "w")
-            self.video_name = video_name
+            self.video_name = video_name or "video"
         else:
             self.incidents_file = None
 
+        self.objs = {}
         if config_path is None:
             return
 
         with open(config_path, "r") as file:
             data = yaml.safe_load(file)
 
+        self.load_data(data)
+
+    def load_data(self, data: list[dict]):
         borders = [
             Border(
                 border["room_id"],
@@ -41,7 +50,6 @@ class InstrumentManager:
             if border["type"] == "border"
         ]
 
-        self.objs = {}
         i = 0
         for border in borders:
             window = None
