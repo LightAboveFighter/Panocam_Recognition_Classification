@@ -1,6 +1,5 @@
 import cv2 as cv
 import numpy as np
-import yaml
 from collections import deque
 from shapely import LineString
 from enum import Enum

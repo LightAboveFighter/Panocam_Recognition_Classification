@@ -1,5 +1,5 @@
-from borders import Border, IncidentLevel
-from detect_windows import DetectWindow
+from .borders import Border, IncidentLevel
+from .detect_windows import DetectWindow
 import yaml
 import numpy as np
 from datetime import datetime

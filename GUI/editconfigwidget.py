@@ -18,11 +18,11 @@ from numpy.random import randint
 from ngon_item import NgonItem
 
 import sys
+import os
 
-# # Добавляем путь к директории выше текущей
-# print(str(Path().cwd().parent / "tracker.py"))
-# sys.path.insert(0, str(Path().cwd().parent))
-# from ..source.tracker import Tracker
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from source.tracker import Tracker
 
 
 class ToolType(Enum):
