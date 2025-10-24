@@ -1,6 +1,6 @@
 import cv2 as cv
 from ultralytics import YOLO
-from instrument_manager import InstrumentManager
+from .instrument_manager import InstrumentManager
 import numpy as np
 
 
