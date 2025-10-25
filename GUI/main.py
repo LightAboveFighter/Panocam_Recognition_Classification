@@ -4,6 +4,16 @@ from PyQt6.QtGui import QImage, QPixmap
 from start_page import Ui_MainWindow
 from pathlib import Path
 from editconfigwidget import EditConfigWidget
+from edit_config_window import Ui_MainWindow as EditConfigWindowUi
+
+
+class EditConfigWindow(QMainWindow):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.ui = EditConfigWindowUi()
+        self.ui.setupUi(self)
+        self.edit_config_widget = self.ui.centralwidget
 
 
 class MainWindow(QMainWindow):
@@ -48,8 +58,8 @@ class MainWindow(QMainWindow):
     def view_frame_to_config(self, path: str = None):
         if len(path) == 0:
             return
-        edit_config = EditConfigWidget()
-        if edit_config.set_path(path):
+        edit_config = EditConfigWindow(parent=self)
+        if edit_config.edit_config_widget.set_path(path):
             self.last_folder = str(Path(path).parent)
             with Path("GUI/user_files/last_video_folder.txt").open("w") as file:
                 file.write(self.last_folder)
