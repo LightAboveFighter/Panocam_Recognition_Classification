@@ -17,12 +17,7 @@ import yaml
 from numpy.random import randint
 from ngon_item import NgonItem
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from source.tracker import Tracker
+from video_processing_thread import VideoProcessingThread
 
 
 class ToolType(Enum):
@@ -198,6 +193,10 @@ class DrawableGraphicsScene(QGraphicsScene):
 
 class EditConfigWidget(QWidget):
 
+    video_processor: VideoProcessingThread
+    data: list[dict]
+    video_cap: cv.VideoCapture
+
     def __init__(self):
         super().__init__()
         self.ui = Ui_Form()
@@ -235,6 +234,9 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setResizeAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse
         )
+        self.ui.frame_viewer.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.SmartViewportUpdate
+        )
         self.ui.frame_viewer.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.ui.frame_viewer.setScene(self.scene)
         self.ui.frame_viewer.setViewportUpdateMode(
@@ -243,6 +245,7 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setOptimizationFlag(
             QGraphicsView.OptimizationFlag.DontSavePainterState, True
         )
+        self.ui.frame_viewer.setInteractive(True)
         self.set_drag(True)
 
         filename_last_path = Path("GUI/user_files/last_config_folder.txt")
@@ -256,6 +259,7 @@ class EditConfigWidget(QWidget):
                 self.last_folder = file.readline()
 
         self.video_cap = None
+        self.video_processor = None
         self.data = []
         self.curr_id = 0
         self.curr_scale = 1.0
@@ -265,22 +269,10 @@ class EditConfigWidget(QWidget):
         success, im = self.video_cap.read()
         if success:
             self.change_frame(im)
-            self.set_scene(im)
         else:
             self.video_cap.release()
             self.video_cap = None
         return success
-
-    def set_scene(self, frame):
-        self.scene.clear()
-        self.scene.addPixmap(self.current_frame)
-        self.scene.setSceneRect(
-            0,
-            0,
-            self.current_frame.width(),
-            self.current_frame.height(),
-        )
-        self.aspect_ratio = frame.shape[0] / frame.shape[1]
 
     def change_frame(self, frame):
         image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
@@ -295,6 +287,15 @@ class EditConfigWidget(QWidget):
                 QImage.Format.Format_RGB888,
             )
         )
+        self.scene.clear()
+        self.scene.addPixmap(self.current_frame)
+        self.scene.setSceneRect(
+            0,
+            0,
+            self.current_frame.width(),
+            self.current_frame.height(),
+        )
+        self.aspect_ratio = self.current_frame.height() / self.current_frame.width()
 
     def update_view(self):
         self.ui.frame_viewer.fitInView(
@@ -367,6 +368,9 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setMouseTracking(False)
 
     def get_border(self, p1_x: int, p1_y: int, p2_x: int, p2_y: int):
+        if p1_x == p2_x and p1_y == p2_y:
+            return
+
         zoom_val = self.zoom_value()
         pack = (
             [int(p1_x / zoom_val), int(p1_y / zoom_val)],
@@ -473,24 +477,31 @@ class EditConfigWidget(QWidget):
             if x2 > self.current_frame.width() or y2 > self.current_frame.height():
                 continue
 
+            if x1 == x2 and y1 == y2:
+                continue
+
             resized.append(self.get_rescaled_data([obj])[0])
             approved.append(obj)
             self.curr_id = max(self.curr_id, obj["room_id"])
         self.data.extend(approved)
         self.scene.draw_objects(resized)
 
+    def clear_thread(self):
+        self.video_processor.quit()
+        self.video_processor.wait()
+        self.video_processor = None
+
     def process(self):
         show = Dialog(self, "Show processing?").get_answer()
 
-        # video_out = cv.VideoWriter(f"materials/out/1.avi")
-
-        # tracker = Tracker("yolo11n.pt", self.data, video_out)
-
-        # while self.video_cap.isOpened():
-        #     success, frame = self.video_cap.read()
-        #     if not success:
-        #         continue
-
-        #     frame = tracker.track_frame(frame)
-        #     if show:
-        #         self.change_frame(frame)
+        self.video_processor = VideoProcessingThread(
+            show,
+            self.video_cap,
+            (self.current_frame.height(), self.current_frame.width()),
+            self.data,
+            parent=self,
+        )
+        self.video_processor.setObjectName("VideoProcessingThread in EditConfigWidget")
+        self.video_processor.frame_processed.connect(self.change_frame)
+        self.video_processor.processing_complete.connect(self.clear_thread)
+        self.video_processor.start()

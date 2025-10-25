@@ -1,11 +1,14 @@
 import sys
-from PyQt6.QtWidgets import QFileDialog, QMainWindow, QApplication
+from PyQt6.QtWidgets import QFileDialog, QMainWindow, QApplication, QWidget
 from PyQt6.QtGui import QImage, QPixmap
 from start_page import Ui_MainWindow
 from pathlib import Path
+from editconfigwidget import EditConfigWidget
 
 
 class MainWindow(QMainWindow):
+
+    thread_widgets: list[QWidget]
 
     def __init__(self):
         super().__init__()
@@ -45,44 +48,15 @@ class MainWindow(QMainWindow):
     def view_frame_to_config(self, path: str = None):
         if len(path) == 0:
             return
-        if self.ui.page_edit_config.set_path(path):
+        edit_config = EditConfigWidget()
+        if edit_config.set_path(path):
             self.last_folder = str(Path(path).parent)
             with Path("GUI/user_files/last_video_folder.txt").open("w") as file:
                 file.write(self.last_folder)
 
-            self.ui.stackedWidget.setCurrentIndex(1)
-            self.resize(
-                min(self.width(), self.height()),
-                int(
-                    min(self.width(), self.height())
-                    / self.ui.page_edit_config.aspect_ratio
-                ),
-            )
-            self.aspect_ratio = self.width() / self.height()
+            edit_config.show()
         else:
             self.ui.error_message.setVisible(True)
-
-    def resizeEvent(self, event):
-        if self.ui.stackedWidget.currentIndex() == 1:
-            if hasattr(self.ui.page_edit_config, "aspect_ratio"):
-                curr_aspect_ratio = event.size().width() / event.size().height()
-                if (
-                    abs(self.ui.page_edit_config.aspect_ratio - curr_aspect_ratio)
-                    > 0.01
-                ):
-                    new_height = event.size().height()
-                    new_width = event.size().width()
-                    if new_width / self.ui.page_edit_config.aspect_ratio > new_height:
-                        new_width = int(
-                            new_height / self.ui.page_edit_config.aspect_ratio
-                        )
-                    else:
-                        new_height = int(
-                            new_width * self.ui.page_edit_config.aspect_ratio
-                        )
-                    self.resize(new_width, new_height)
-
-        return super().resizeEvent(event)
 
 
 if __name__ == "__main__":

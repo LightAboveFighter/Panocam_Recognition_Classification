@@ -1,5 +1,4 @@
-from .borders import Border, IncidentLevel
-from .detect_windows import DetectWindow
+from .track_objects import Border, IncidentLevel, DetectWindow, get_track_obj
 import yaml
 import numpy as np
 from datetime import datetime
@@ -39,34 +38,24 @@ class InstrumentManager:
         self.load_data(data)
 
     def load_data(self, data: list[dict]):
-        borders = [
-            Border(
-                border["room_id"],
-                border["accuracy"],
-                border["point1"],
-                border["point2"],
-            )
-            for border in data
-            if border["type"] == "border"
-        ]
+        objects = [get_track_obj(obj_dict) for obj_dict in data]
 
-        i = 0
-        for border in borders:
+        for j in range(len(objects)):
+            if objects[j].get_type() != "border":
+                continue
+            i = j + 1
+            # объединяем окна и границы с одинаковыми айди
+            # мы можем иметь линию без окна, но не наоборот
             window = None
             while i < len(data):
-                w_data = data[i]
-                if w_data["type"] == "detect_window" and w_data["room_id"] == border.id:
-                    window = DetectWindow(w_data["point1"], w_data["point2"], None)
-                    break
+                if (
+                    objects[i].get_type() == "detect_window"
+                    and objects[i].id == objects[j].id
+                ):
+                    window = objects[i]
                 i += 1
 
-            self.objs[border.id] = (border, window)
-
-    def add_closed_example(self, id: int, closed_example: np.ndarray):
-        if not self.objs.get(id, False):
-            return False
-        self.objs[id][1].add_closed_example(closed_example)
-        return True
+            self.objs[objects[j].id] = (objects[j], window)
 
     def add_instrument(self, border: Border, detect_window: DetectWindow):
         self.objs[border.id] = (border, detect_window)
