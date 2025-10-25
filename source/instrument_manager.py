@@ -3,6 +3,7 @@ import yaml
 import numpy as np
 from datetime import datetime
 import cv2 as cv
+from pathlib import Path
 
 
 class InstrumentManager:
@@ -22,8 +23,12 @@ class InstrumentManager:
         """
 
         self.incident_id = 1
+
         if not incidents_path is None:
-            self.incidents_file = open(incidents_path, "w")
+            path = Path(incidents_path)
+            if not path.parent.exists():
+                path.parent.mkdir()
+            self.incidents_file = path.open("w")
             self.video_name = video_name or "video"
         else:
             self.incidents_file = None
