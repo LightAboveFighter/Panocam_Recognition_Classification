@@ -13,7 +13,7 @@ class EditConfigWindow(QMainWindow):
         super().__init__(parent)
         self.ui = EditConfigWindowUi()
         self.ui.setupUi(self)
-        self.edit_config_widget = self.ui.centralwidget
+        self.edit_config_widget = self.ui.edit_config_widget
 
 
 class MainWindow(QMainWindow):
