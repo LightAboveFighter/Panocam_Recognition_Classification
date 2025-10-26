@@ -423,6 +423,7 @@ class EditConfigWidget(QWidget):
                 "point4": pack[3],
             }
         )
+
         self.stop_drawing()
         self.curr_id += 1
 
@@ -433,17 +434,7 @@ class EditConfigWidget(QWidget):
             mode = QGraphicsView.DragMode.NoDrag
         self.ui.frame_viewer.setDragMode(mode)
 
-        # При отключении перетаскивания убедитесь, что анкеры сброшены
-        # if not is_active:
-        #     self.ui.frame_viewer.setTransformationAnchor(
-        #         QGraphicsView.ViewportAnchor.AnchorUnderMouse
-        #     )
-        #     self.ui.frame_viewer.setResizeAnchor(
-        #         QGraphicsView.ViewportAnchor.AnchorUnderMouse
-        #     )
-
     def save_config(self):
-
         if self.last_folder is None:
             folder = Path().cwd()
         else:
