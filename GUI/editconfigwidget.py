@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
     QWidget,
     QGraphicsView,
     QGraphicsLineItem,
-    QGraphicsRectItem,
     QFileDialog,
 )
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
@@ -196,6 +195,7 @@ class EditConfigWidget(QWidget):
     video_processor: VideoProcessingThread
     data: list[dict]
     video_cap: cv.VideoCapture
+    processing = pyqtSignal(bool)  # show
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -265,7 +265,9 @@ class EditConfigWidget(QWidget):
         self.curr_scale = 1.0
 
     def set_path(self, path: str):
+        """change frame, delete all previous data"""
         self.video_cap = cv.VideoCapture(path)
+        self.data = []
         success, im = self.video_cap.read()
         if success:
             self.change_frame(im)
@@ -486,22 +488,6 @@ class EditConfigWidget(QWidget):
         self.data.extend(approved)
         self.scene.draw_objects(resized)
 
-    def clear_thread(self):
-        self.video_processor.quit()
-        self.video_processor.wait()
-        self.video_processor = None
-
     def process(self):
         show = Dialog(self, "Show processing?").get_answer()
-
-        self.video_processor = VideoProcessingThread(
-            show,
-            self.video_cap,
-            (self.current_frame.height(), self.current_frame.width()),
-            self.data,
-            parent=self,
-        )
-        self.video_processor.setObjectName("VideoProcessingThread in EditConfigWidget")
-        self.video_processor.frame_processed.connect(self.change_frame)
-        self.video_processor.processing_complete.connect(self.clear_thread)
-        self.video_processor.start()
+        self.processing.emit(show)
