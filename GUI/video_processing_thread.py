@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
 import cv2 as cv
 import numpy as np
 
@@ -28,24 +28,37 @@ class VideoProcessingThread(QThread):
         self.shape = shape
         self.data = data
         self.show = show
-        self.is_running = True
+        self._is_running = True
+        self._lock = QMutex()
 
     def stop(self):
-        self.is_running = False
-        self.wait()
+        with QMutexLocker(self._lock):
+            self._is_running = False
+
+    def is_running(self):
+        with QMutexLocker(self._lock):
+            return self._is_running
+
+    def exit(self, returnCode=...):
+        self._is_running = False
+        return super().exit(returnCode)
+
+    def quit(self):
+        self._is_running = False
+        return super().quit()
 
     def run(self):
 
-        video_out = cv.VideoWriter(
-            f"materials/out/1.avi",
-            fourcc=cv.VideoWriter_fourcc(*"FMP4"),
-            fps=20.0,
-            frameSize=(self.shape[1], self.shape[0]),
-        )
+        # video_out = cv.VideoWriter(
+        #     f"materials/out/{id}.avi",
+        #     fourcc=cv.VideoWriter_fourcc(*"XVID"),
+        #     fps=20.0,
+        #     frameSize=(self.shape[1], self.shape[0]),
+        # )
 
-        tracker = Tracker("yolo11n.pt", self.data, video_out)
+        tracker = Tracker("yolo11n.pt", self.data, video_out=None)
 
-        while self.video_cap.isOpened():
+        while self.video_cap.isOpened() and self._is_running:
             success, frame = self.video_cap.read()
             if not success:
                 break
@@ -55,4 +68,5 @@ class VideoProcessingThread(QThread):
                 self.frame_processed.emit(frame)
                 # self.progress_bar.emit(i/len(self.video_cap))
 
+        # video_out.release()
         self.processing_complete.emit()

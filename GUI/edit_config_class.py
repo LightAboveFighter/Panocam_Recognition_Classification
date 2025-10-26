@@ -12,11 +12,13 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(516, 232)
+        Form.resize(610, 475)
         self.verticalLayout = QtWidgets.QVBoxLayout(Form)
         self.verticalLayout.setObjectName("verticalLayout")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
-        self.verticalLayout_2.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMaximumSize)
+        self.verticalLayout_2.setSizeConstraint(
+            QtWidgets.QLayout.SizeConstraint.SetMaximumSize
+        )
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -36,18 +38,22 @@ class Ui_Form(object):
         self.button_process.setObjectName("button_process")
         self.horizontalLayout_2.addWidget(self.button_process)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
+        self.frame_viewer = QtWidgets.QGraphicsView(parent=Form)
+        self.frame_viewer.setObjectName("frame_viewer")
+        self.verticalLayout_2.addWidget(self.frame_viewer)
         self.line = QtWidgets.QFrame(parent=Form)
         self.line.setFrameShape(QtWidgets.QFrame.Shape.HLine)
         self.line.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
         self.line.setObjectName("line")
         self.verticalLayout_2.addWidget(self.line)
-        self.frame_viewer = QtWidgets.QGraphicsView(parent=Form)
-        self.frame_viewer.setObjectName("frame_viewer")
-        self.verticalLayout_2.addWidget(self.frame_viewer)
         self.horizontalSlider = QtWidgets.QSlider(parent=Form)
         self.horizontalSlider.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.horizontalSlider.setObjectName("horizontalSlider")
         self.verticalLayout_2.addWidget(self.horizontalSlider)
+        self.verticalLayout_2.setStretch(0, 1)
+        self.verticalLayout_2.setStretch(1, 10)
+        self.verticalLayout_2.setStretch(2, 1)
+        self.verticalLayout_2.setStretch(3, 5)
         self.verticalLayout.addLayout(self.verticalLayout_2)
         self.action_save_config = QtGui.QAction(parent=Form)
         self.action_save_config.setCheckable(True)
@@ -75,6 +81,7 @@ class Ui_Form(object):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     Form = QtWidgets.QWidget()
     ui = Ui_Form()
