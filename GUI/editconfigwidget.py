@@ -303,6 +303,7 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.fitInView(
             self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio
         )
+        self.curr_scale = 1.0
 
     def showEvent(self, event):
         # ensure that the update only happens when showing the window
@@ -316,22 +317,24 @@ class EditConfigWidget(QWidget):
         return super().resizeEvent(event)
 
     def wheelEvent(self, event):
-        zoom_factor = 1.1
-        max_zoom = 5.0
-        min_zoom = 1.0
+        zoom_factor = 1.15
+        max_scale = 5.0  # 500%
+        min_scale = 1.0  # 100%
 
-        event.accept()
-        if event.angleDelta().y() < 0:
-            if self.curr_scale * zoom_factor < min_zoom:
-                zoom_factor = 1.0
-            else:
-                zoom_factor = 1 / zoom_factor
         if event.angleDelta().y() > 0:
-            if self.curr_scale >= max_zoom:
-                zoom_factor = max_zoom / self.curr_scale
+            factor = zoom_factor
+        else:
+            factor = 1.0 / zoom_factor
 
-        self.curr_scale *= zoom_factor
-        self.ui.frame_viewer.scale(zoom_factor, zoom_factor)
+        new_scale = self.curr_scale * factor
+
+        if new_scale < min_scale or new_scale > max_scale:
+            event.ignore()
+            return
+
+        self.curr_scale = new_scale
+        self.ui.frame_viewer.scale(factor, factor)
+        event.accept()
 
     def get_rescaled_data(self, data):
         zoom_val = self.zoom_value()
@@ -429,6 +432,15 @@ class EditConfigWidget(QWidget):
         else:
             mode = QGraphicsView.DragMode.NoDrag
         self.ui.frame_viewer.setDragMode(mode)
+
+        # При отключении перетаскивания убедитесь, что анкеры сброшены
+        # if not is_active:
+        #     self.ui.frame_viewer.setTransformationAnchor(
+        #         QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        #     )
+        #     self.ui.frame_viewer.setResizeAnchor(
+        #         QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        #     )
 
     def save_config(self):
 
