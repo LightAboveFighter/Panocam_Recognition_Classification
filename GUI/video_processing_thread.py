@@ -55,18 +55,21 @@ class VideoProcessingThread(QThread):
         #     fps=20.0,
         #     frameSize=(self.shape[1], self.shape[0]),
         # )
+        try:
+            tracker = Tracker("yolo11n.pt", self.data, video_out=None)
 
-        tracker = Tracker("yolo11n.pt", self.data, video_out=None)
+            while self.video_cap.isOpened() and self._is_running:
+                success, frame = self.video_cap.read()
+                if not success:
+                    break
 
-        while self.video_cap.isOpened() and self._is_running:
-            success, frame = self.video_cap.read()
-            if not success:
-                break
-
-            frame = tracker.track_frame(frame)
-            if self.show:
-                self.frame_processed.emit(frame)
-                # self.progress_bar.emit(i/len(self.video_cap))
+                frame = tracker.track_frame(frame)
+                if self.show:
+                    self.frame_processed.emit(frame)
+                    # self.progress_bar.emit(i/len(self.video_cap))
+        except Exception as err:
+            print(err)
+            pass
 
         # video_out.release()
         self.processing_complete.emit()
