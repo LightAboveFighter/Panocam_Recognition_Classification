@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QMutexLocker
+from PyQt6.QtCore import QThread, pyqtSignal
 import cv2 as cv
 import numpy as np
 
@@ -18,33 +18,31 @@ class VideoProcessingThread(QThread):
     def __init__(
         self,
         show: bool,
-        video_cap: cv.VideoCapture,
+        path: cv.VideoCapture,
         shape: tuple[int],
         data: list[dict],
         parent=...,
     ):
         super().__init__(parent)
-        self.video_cap = video_cap
+        self.path = path
+        self._video_cap = None
         self.shape = shape
         self.data = data
         self.show = show
         self._is_running = True
-        self._lock = QMutex()
 
     def stop(self):
-        with QMutexLocker(self._lock):
-            self._is_running = False
+        self._is_running = False
 
     def is_running(self):
-        with QMutexLocker(self._lock):
-            return self._is_running
+        return self._is_running
 
     def exit(self, returnCode=...):
-        self._is_running = False
+        self.stop()
         return super().exit(returnCode)
 
     def quit(self):
-        self._is_running = False
+        self.stop()
         return super().quit()
 
     def run(self):
@@ -57,19 +55,22 @@ class VideoProcessingThread(QThread):
         # )
         try:
             tracker = Tracker("yolo11n.pt", self.data, video_out=None)
+            self._video_cap = cv.VideoCapture(self.path)
 
-            while self.video_cap.isOpened() and self._is_running:
-                success, frame = self.video_cap.read()
+            while self._video_cap.isOpened() and self._is_running:
+
+                success, frame = self._video_cap.read()
                 if not success:
                     break
 
                 frame = tracker.track_frame(frame)
                 if self.show:
                     self.frame_processed.emit(frame)
-                    # self.progress_bar.emit(i/len(self.video_cap))
         except Exception as err:
             print(err)
             pass
-
-        # video_out.release()
-        self.processing_complete.emit()
+        finally:
+            # video_out.release()
+            self.stop()
+            self._video_cap.release()
+            self.processing_complete.emit()

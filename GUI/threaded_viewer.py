@@ -101,12 +101,12 @@ class ThreadedViewer(QGraphicsView):
         self.video_processor = None
 
     def start_video_thread(
-        self, video_cap: cv.VideoCapture, shape: tuple[int], data: list[dict]
+        self, path: str, shape: tuple[int], data: list[dict]
     ):
 
         self.video_processor = VideoProcessingThread(
             True,
-            video_cap=video_cap,
+            path=path,
             shape=shape,
             data=data,
             parent=self,
