@@ -194,7 +194,7 @@ class EditConfigWidget(QWidget):
 
     video_processor: VideoProcessingThread
     data: list[dict]
-    video_cap: cv.VideoCapture
+    _video_cap: cv.VideoCapture
     processing = pyqtSignal(bool)  # show
 
     def __init__(self, parent=None):
@@ -258,7 +258,7 @@ class EditConfigWidget(QWidget):
             with filename_last_path.open("r") as file:
                 self.last_folder = file.readline()
 
-        self.video_cap = None
+        self._video_cap = None
         self.video_processor = None
         self.data = []
         self.curr_id = 0
@@ -266,14 +266,15 @@ class EditConfigWidget(QWidget):
 
     def set_path(self, path: str):
         """change frame, delete all previous data"""
-        self.video_cap = cv.VideoCapture(path)
+        self.path = path
+        self._video_cap = cv.VideoCapture(path)
         self.data = []
-        success, im = self.video_cap.read()
+        success, im = self._video_cap.read()
         if success:
             self.change_frame(im)
         else:
-            self.video_cap.release()
-            self.video_cap = None
+            self._video_cap.release()
+            self._video_cap = None
         return success
 
     def change_frame(self, frame):

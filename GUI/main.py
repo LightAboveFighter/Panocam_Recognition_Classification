@@ -98,7 +98,7 @@ class EditConfigWindow(QMainWindow):
         self.update_grid_stretch()
 
         viewer.start_video_thread(
-            self.ui.edit_config_widget.video_cap,
+            self.ui.edit_config_widget.path,
             (
                 self.ui.edit_config_widget.height(),
                 self.ui.edit_config_widget.width(),
@@ -138,7 +138,7 @@ class EditConfigWindow(QMainWindow):
             self.hidden_processors.append(
                 VideoProcessingThread(
                     False,
-                    self.ui.edit_config_widget.video_cap,
+                    self.ui.edit_config_widget.path,
                     (
                         self.ui.edit_config_widget.height(),
                         self.ui.edit_config_widget.width(),
