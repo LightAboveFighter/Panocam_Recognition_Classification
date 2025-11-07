@@ -217,7 +217,7 @@ class StartPage(QMainWindow):
 
     def closeEvent(self, event):
 
-        if self.view_edit_window is None:
+        if self.view_edit_window is None or not self.view_edit_window.isVisible():
             return super().closeEvent(event)
 
         if self.view_edit_window.isVisible():
@@ -225,7 +225,10 @@ class StartPage(QMainWindow):
             event.ignore()
             return
 
-        return super().closeEvent(event)
+    def hide(self):
+        self.ui.error_message.hide()
+        self.ui.link_video_edit.setText("")
+        return super().hide()
 
 
 if __name__ == "__main__":
