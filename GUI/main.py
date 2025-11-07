@@ -213,6 +213,7 @@ class StartPage(QMainWindow):
             self.view_edit_window.show()
             self.hide()
         else:
+            self.ui.error_message.setText(f"Unable to open {path}")
             self.ui.error_message.setVisible(True)
 
     def closeEvent(self, event):
