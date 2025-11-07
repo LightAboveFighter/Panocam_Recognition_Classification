@@ -237,7 +237,7 @@
          </palette>
         </property>
         <property name="text">
-         <string>Unable to open file</string>
+         <string/>
         </property>
        </widget>
       </item>

@@ -84,6 +84,7 @@ class Ui_MainWindow(object):
         brush.setStyle(QtCore.Qt.BrushStyle.SolidPattern)
         palette.setBrush(QtGui.QPalette.ColorGroup.Disabled, QtGui.QPalette.ColorRole.PlaceholderText, brush)
         self.error_message.setPalette(palette)
+        self.error_message.setText("")
         self.error_message.setObjectName("error_message")
         self.gridLayout.addWidget(self.error_message, 3, 1, 1, 1)
         self.gridLayout.setColumnStretch(0, 2)
@@ -111,7 +112,6 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.link_video_edit.setToolTip(_translate("MainWindow", "video link"))
         self.button_load_video.setText(_translate("MainWindow", "Load video"))
-        self.error_message.setText(_translate("MainWindow", "Unable to open file"))
 from inputtextwidget import InputTextWidget
 
 
