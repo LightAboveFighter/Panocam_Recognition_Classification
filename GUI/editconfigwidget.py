@@ -6,18 +6,17 @@ from PyQt6.QtWidgets import (
     QWidget,
     QGraphicsView,
     QGraphicsLineItem,
-    QFileDialog,
 )
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
-from pathlib import Path
 import yaml
 from numpy.random import randint
 from ngon_item import NgonItem
 from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
+from file_methods import get_user_path_save_last_dir
 
 
 class ToolType(Enum):
@@ -249,16 +248,6 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setInteractive(True)
         self.set_drag(True)
 
-        filename_last_path = Path("GUI/user_files/last_config_folder.txt")
-        if not filename_last_path.parent.exists():
-            Path(filename_last_path).parent.mkdir()
-        if not filename_last_path.exists():
-            self.last_folder = None
-            filename_last_path.touch()
-        else:
-            with filename_last_path.open("r") as file:
-                self.last_folder = file.readline()
-
         self._video_cap = None
         self.video_processor = None
         self.data = []
@@ -437,36 +426,29 @@ class EditConfigWidget(QWidget):
         self.ui.frame_viewer.setDragMode(mode)
 
     def save_config(self):
-        if self.last_folder is None:
-            folder = Path().cwd()
-        else:
-            folder = self.last_folder
-
-        path = QFileDialog.getSaveFileName(
+        path = get_user_path_save_last_dir(
             self,
+            "s",
             "Выберите файл",
-            str(folder),
             "YAML (*.yaml)",
-        )[0]
+            "GUI/user_files/last_config_folder.txt",
+        )
+
         if len(path) == 0:
             return
 
-        self.last_folder = str(Path(path).parent)
         with open(path, "w+") as file:
             yaml.dump(self.data, file)
 
     def load_config(self):
-        if self.last_folder is None:
-            folder = Path().cwd()
-        else:
-            folder = self.last_folder
-
-        path = QFileDialog.getOpenFileName(
+        path = get_user_path_save_last_dir(
             self,
+            "o",
             "Выберите файл",
-            str(folder),
             "YAML (*.yaml)",
-        )[0]
+            "GUI/user_files/last_config_folder.txt",
+        )
+
         if len(path) == 0:
             return
 
