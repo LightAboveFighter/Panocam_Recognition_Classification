@@ -23,6 +23,9 @@ class Ui_Dialog(object):
         self.verticalLayout.addWidget(self.label)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.verticalLayout.addItem(spacerItem1)
+        self.optional_grid = QtWidgets.QGridLayout()
+        self.optional_grid.setObjectName("optional_grid")
+        self.verticalLayout.addLayout(self.optional_grid)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -49,7 +52,7 @@ class Ui_Dialog(object):
         self.verticalLayout.setStretch(0, 1)
         self.verticalLayout.setStretch(1, 10)
         self.verticalLayout.setStretch(2, 3)
-        self.verticalLayout.setStretch(3, 1)
+        self.verticalLayout.setStretch(4, 1)
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)

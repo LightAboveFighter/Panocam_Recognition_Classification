@@ -132,7 +132,7 @@ class EditConfigWindow(QMainWindow):
 
             self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
 
-    def process(self, show: bool = True):
+    def process(self, show: bool = True, options: list[bool] = None):
         self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
         if not show:
             self.hidden_processors.append(
@@ -144,6 +144,7 @@ class EditConfigWindow(QMainWindow):
                         self.ui.edit_config_widget.width(),
                     ),
                     self.ui.edit_config_widget.data,
+                    options,
                     parent=self,
                 )
             )
@@ -152,7 +153,7 @@ class EditConfigWindow(QMainWindow):
             )
             return
 
-        self.add_viewer()
+        self.add_viewer(options)
 
 
 class StartPage(QMainWindow):

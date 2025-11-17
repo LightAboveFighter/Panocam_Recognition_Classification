@@ -15,6 +15,7 @@ from pathlib import Path
 import yaml
 from numpy.random import randint
 from ngon_item import NgonItem
+from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
 
@@ -195,7 +196,7 @@ class EditConfigWidget(QWidget):
     video_processor: VideoProcessingThread
     data: list[dict]
     _video_cap: cv.VideoCapture
-    processing = pyqtSignal(bool)  # show
+    processing = pyqtSignal(bool, list)  # show, AI options
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -493,5 +494,7 @@ class EditConfigWidget(QWidget):
         self.scene.draw_objects(resized)
 
     def process(self):
-        show = Dialog(self, "Show processing?").get_answer()
-        self.processing.emit(show)
+        dialog = Dialog(self, "Show processing?")
+        dialog.set_check_box_variants(AI_options)
+        show, options = dialog.get_answer()
+        self.processing.emit(show, options)
