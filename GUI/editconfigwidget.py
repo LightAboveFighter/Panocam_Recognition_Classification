@@ -16,7 +16,7 @@ from ngon_item import NgonItem
 from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
-from file_methods import get_user_path_save_last_dir
+from file_methods import get_user_path_save_last_dir, rec_create_file
 
 
 class ToolType(Enum):
@@ -478,5 +478,16 @@ class EditConfigWidget(QWidget):
     def process(self):
         dialog = Dialog(self, "Show processing?")
         dialog.set_check_box_variants(AI_options)
+
+        saved_options_path = "GUI/user_files/last_checkbox_options.yaml"
+        rec_create_file(saved_options_path)
+        with open(saved_options_path, "r") as file:
+            saved_options = yaml.safe_load(file)
+            if not saved_options is None:
+                dialog.set_check_box_states(saved_options)
+
         show, options = dialog.get_answer()
+        with open(saved_options_path, "w") as file:
+            yaml.safe_dump(options, file)
+
         self.processing.emit(show, options)

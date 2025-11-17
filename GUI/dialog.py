@@ -17,6 +17,12 @@ class Dialog(QDialog):
         self.ui.button_box.rejected.connect(self.reject)
         self.check_boxes = []
 
+    def set_check_box_states(self, states: list[bool]):
+        for check_box, state in zip(
+            self.check_boxes, [*states, [False] * (len(self.check_boxes) - len(states))]
+        ):
+            check_box.setChecked(state)
+
     def set_check_box_variants(self, var_list: list[str]):
 
         row = 0
