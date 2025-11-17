@@ -19,16 +19,45 @@ class Dialog(QDialog):
 
     def set_check_box_states(self, states: list[bool]):
         for check_box, state in zip(
-            self.check_boxes, [*states, [False] * (len(self.check_boxes) - len(states))]
+            self.check_boxes,
+            [*states, *([False] * (len(self.check_boxes) - len(states)))],
         ):
             check_box.setChecked(state)
 
-    def set_check_box_variants(self, var_list: list[str]):
+    def mark_all(self):
+        state = self.check_boxes[0].isChecked()
+        for check_box in self.check_boxes:
+            check_box.blockSignals(True)
+            check_box.setChecked(state)
+            check_box.blockSignals(False)
+
+    def update_mark_all_check_box(self):
+        state = True
+        for i in range(1, len(self.check_boxes)):
+            state = state and self.check_boxes[i].isChecked()
+
+        self.check_boxes[0].blockSignals(True)
+        self.check_boxes[0].setChecked(state)
+        self.check_boxes[0].blockSignals(False)
+
+    def set_check_box_variants(
+        self, var_list: list[str], add_sum_check_box: bool = False
+    ):
 
         row = 0
         column = 0
+
+        if len(var_list) > 0 and add_sum_check_box:
+            check_box = QCheckBox("Выбрать все", self)
+            check_box.stateChanged.connect(self.mark_all)
+            self.check_boxes.append(check_box)
+            self.ui.optional_grid.addWidget(check_box, row, column)
+
+            column += 1
+
         for var in var_list:
             check_box = QCheckBox(var, self)
+            check_box.stateChanged.connect(self.update_mark_all_check_box)
             self.check_boxes.append(check_box)
             self.ui.optional_grid.addWidget(check_box, row, column)
 
