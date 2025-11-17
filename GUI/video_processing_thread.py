@@ -21,6 +21,7 @@ class VideoProcessingThread(QThread):
         path: cv.VideoCapture,
         shape: tuple[int],
         data: list[dict],
+        options: list[bool],
         parent=...,
     ):
         super().__init__(parent)
@@ -29,6 +30,7 @@ class VideoProcessingThread(QThread):
         self.shape = shape
         self.data = data
         self.show = show
+        self.options = options
         self._is_running = True
 
     def stop(self):
@@ -54,7 +56,7 @@ class VideoProcessingThread(QThread):
         #     frameSize=(self.shape[1], self.shape[0]),
         # )
         try:
-            tracker = Tracker("yolo11n.pt", self.data, video_out=None)
+            tracker = Tracker(self.data, video_out=None, options=self.options)
             self._video_cap = cv.VideoCapture(self.path)
 
             while self._video_cap.isOpened() and self._is_running:
@@ -72,5 +74,6 @@ class VideoProcessingThread(QThread):
         finally:
             # video_out.release()
             self.stop()
-            self._video_cap.release()
+            if not self._video_cap is None:
+                self._video_cap.release()
             self.processing_complete.emit()
