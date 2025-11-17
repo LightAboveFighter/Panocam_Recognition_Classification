@@ -1,11 +1,14 @@
 import sys
-from PyQt6.QtWidgets import QFileDialog, QMainWindow, QApplication, QWidget
+from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget
 from start_page import Ui_MainWindow
 from pathlib import Path
 from view_edit_window import Ui_MainWindow as EditConfigWindowUi
 from video_processing_thread import VideoProcessingThread
 from threaded_viewer import ThreadedViewer
 from PyQt6.QtCore import QTimer
+import yaml
+
+from file_methods import get_user_path_save_last_dir
 
 
 class EditConfigWindow(QMainWindow):
@@ -210,16 +213,6 @@ class StartPage(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        filename_last_path = Path("GUI/user_files/last_video_folder.txt")
-        if not filename_last_path.parent.exists():
-            Path(filename_last_path).parent.mkdir()
-        if not filename_last_path.exists():
-            self.last_folder = None
-            filename_last_path.touch()
-        else:
-            with filename_last_path.open("r") as file:
-                self.last_folder = file.readline()
-
         self.ui.button_load_video.clicked.connect(self.open_video_file)
         self.ui.link_video_edit.enterKeyPressed.connect(self.view_frame_to_config)
         self.ui.error_message.setVisible(False)
@@ -227,17 +220,13 @@ class StartPage(QMainWindow):
         self.view_edit_window = None
 
     def open_video_file(self):
-        if self.last_folder is None:
-            folder = Path().cwd()
-        else:
-            folder = self.last_folder
-
-        path = QFileDialog.getOpenFileName(
+        path = get_user_path_save_last_dir(
             self,
+            "o",
             "Выберите видео",
-            str(folder),
             "Видео файлы (*.mp4 *.avi)",
-        )[0]
+            "GUI/user_files/last_video_folder.txt",
+        )
 
         self.view_frame_to_config(path)
 
@@ -252,10 +241,6 @@ class StartPage(QMainWindow):
                 self.view_edit_window = self.parent()
 
         if self.view_edit_window.set_path(path):
-            self.last_folder = str(Path(path).parent)
-            with Path("GUI/user_files/last_video_folder.txt").open("w") as file:
-                file.write(self.last_folder)
-
             self.view_edit_window.show()
             self.hide()
         else:
