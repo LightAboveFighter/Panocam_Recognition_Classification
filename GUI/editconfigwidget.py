@@ -477,7 +477,7 @@ class EditConfigWidget(QWidget):
 
     def process(self):
         dialog = Dialog(self, "Show processing?")
-        dialog.set_check_box_variants(AI_options)
+        dialog.set_check_box_variants(AI_options, True)
 
         saved_options_path = "GUI/user_files/last_checkbox_options.yaml"
         rec_create_file(saved_options_path)
