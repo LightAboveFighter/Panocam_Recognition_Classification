@@ -72,18 +72,23 @@ class EditConfigWindow(QMainWindow):
         if viewers_count >= 7:
             self.ui.viewers_grid_layout.setRowStretch(2, 1)
 
-    def add_viewer(self):
-        viewers_num = len(self.viewers) % 9 + 1
-        if viewers_num == 1:
+    def get_row_column(self, ordinal_index):
+        if ordinal_index == 0:
             row, column = (0, 0)
-        elif viewers_num == 2:
+        elif ordinal_index == 1:
             row, column = (1, 0)
-        elif viewers_num <= 4:
-            row, column = (viewers_num - 3, 1)
-        elif viewers_num <= 6:
-            row, column = (viewers_num - 5, 2)
-        elif viewers_num <= 9:
-            row, column = (2, viewers_num - 7)
+        elif ordinal_index <= 3:
+            row, column = (ordinal_index - 2, 1)
+        elif ordinal_index <= 5:
+            row, column = (ordinal_index - 4, 2)
+        elif ordinal_index <= 8:
+            row, column = (2, ordinal_index - 6)
+
+        return row, column
+
+    def add_viewer(self, options):
+        last_viewer_ind = len(self.viewers) % 9
+        row, column = self.get_row_column(last_viewer_ind)
 
         viewer = ThreadedViewer(row=row, column=column, parent=self)
         if len(self.viewers) > 9:
@@ -92,6 +97,7 @@ class EditConfigWindow(QMainWindow):
         else:
             self.viewers.append(viewer)
 
+        viewer.closed.connect(self.move_viewers_on_empty)
         viewer.clicked.connect(self.focus_viewer)
         self.ui.viewers_grid_layout.addWidget(viewer, row, column)
 
@@ -104,7 +110,46 @@ class EditConfigWindow(QMainWindow):
                 self.ui.edit_config_widget.width(),
             ),
             self.ui.edit_config_widget.data,
+            options,
         )
+
+    def move_viewers_on_empty(self, row: int, column: int):
+
+        last_viewer_ind = len(self.viewers) % 9 - 1
+
+        if row == 2:
+            deleted_index = 6 + column
+        else:
+            deleted_index = 2 * column + row
+
+        if self.ui.stacked_widget.currentIndex() != 1:
+            self.ui.stacked_widget.setCurrentIndex(1)
+            deleted_viewer = self.ui.mono_viewing_layout.itemAt(0).widget()
+        else:
+            deleted_viewer = self.ui.viewers_grid_layout.itemAtPosition(
+                row, column
+            ).widget()
+
+        self.viewers.remove(deleted_viewer)
+        deleted_viewer.deleteLater()
+
+        i = deleted_index
+        while i <= last_viewer_ind - 1:
+            i_row, i_column = self.get_row_column(i)
+            curr_viewer = self.viewers[i]
+            curr_viewer.row = i_row
+            curr_viewer.column = i_column
+            self.ui.viewers_grid_layout.addWidget(curr_viewer, i_row, i_column)
+            i += 1
+
+        self.ui.viewers_grid_layout.removeItem(
+            self.ui.viewers_grid_layout.itemAtPosition(*self.get_row_column(i))
+        )
+        self.update_grid_stretch()
+
+        if last_viewer_ind == 0:
+            self.show_start_page()
+            self.hide()
 
     def focus_viewer(self, row: int, column: int):
         if self.ui.stacked_widget.currentIndex() == 1:  # viewers page -> mono

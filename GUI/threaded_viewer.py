@@ -1,15 +1,33 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QSizePolicy
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QSizePolicy, QPushButton
 from PyQt6.QtGui import QPixmap, QImage
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from video_processing_thread import VideoProcessingThread
-import numpy as np
 import cv2 as cv
+
+
+class HidingButton(QPushButton):
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+
+    def leaveEvent(self, a0):
+        self.hide()
+        return super().leaveEvent(a0)
+
+    def hide(self):
+        self.setMouseTracking(False)
+        return super().hide()
+
+    def focusOutEvent(self, a0):
+        self.hide()
+        return super().focusOutEvent(a0)
 
 
 class ThreadedViewer(QGraphicsView):
 
     scene: QGraphicsScene
     clicked = pyqtSignal(int, int)  # row, column
+    closed = pyqtSignal(int, int)  # row, column
 
     def __init__(
         self,
@@ -24,6 +42,9 @@ class ThreadedViewer(QGraphicsView):
         self.video_processor = None
         self.row = row
         self.column = column
+        self.button = HidingButton("Закрыть", self)
+        self.button.hide()
+        self.button.clicked.connect(self.close_on_button)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setFrameStyle(0)
 
@@ -39,9 +60,37 @@ class ThreadedViewer(QGraphicsView):
         self.update_view()
         return super().resizeEvent(event)
 
+    def mouseMoveEvent(self, event):
+        if self.button.isVisible() and not self.button.underMouse():
+            self.button.hide()
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, a0):
+        self.button.hide()
+        return super().leaveEvent(a0)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.row, self.column)
+        elif event.button() == Qt.MouseButton.RightButton:
+            right_side = self.rect().x() + self.rect().width()
+            bottom_side = self.rect().y() + self.rect().height()
+            self.button.move(
+                QPoint(
+                    min(
+                        event.pos().x() - 5,
+                        right_side - self.button.geometry().width() - 4,
+                    ),
+                    min(
+                        event.pos().y() - 5,
+                        bottom_side - self.button.geometry().height() - 4,
+                    ),
+                )
+            )
+            self.button.setMouseTracking(True)
+            self.button.show()
+        else:
+            self.button.hide()
 
         return super().mousePressEvent(event)
 
@@ -67,6 +116,11 @@ class ThreadedViewer(QGraphicsView):
             self.current_frame.height(),
         )
         self.aspect_ratio = self.current_frame.height() / self.current_frame.width()
+
+    def close_on_button(self):
+        self.button.hide()
+        self.clear_thread()
+        self.closed.emit(self.row, self.column)
 
     def closeEvent(self, event):
         self.clear_thread()
