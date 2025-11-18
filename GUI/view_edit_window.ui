@@ -27,11 +27,25 @@
       <widget class="QWidget" name="viewing_page">
        <layout class="QGridLayout" name="gridLayout_4" rowstretch="1,15">
         <item row="0" column="0">
-         <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1000">
+         <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1,1,3">
           <item>
            <widget class="QPushButton" name="add_video_button">
             <property name="text">
              <string>Add video</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="save_session_button">
+            <property name="text">
+             <string>Save session</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="load_session_button">
+            <property name="text">
+             <string>Load session</string>
             </property>
            </widget>
           </item>
