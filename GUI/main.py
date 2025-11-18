@@ -20,11 +20,14 @@ class EditConfigWindow(QMainWindow):
         self.ui.stacked_widget.setCurrentIndex(0)  # editing page
         self.ui.edit_config_widget.processing.connect(self.process)
         self.ui.add_video_button.clicked.connect(self.show_start_page)
+        self.ui.save_session_button.clicked.connect(self.save_session)
+        self.ui.load_session_button.clicked.connect(self.load_session)
 
         self.hidden_processors = []
         self.viewers = []
         self.default_widget = QWidget()
         self.saved_viewer_size = None
+        self.session = []
 
     def show_start_page(self):
         self.parent().show()
@@ -97,10 +100,26 @@ class EditConfigWindow(QMainWindow):
         if len(self.viewers) > 9:
             self.viewers.insert(0, viewer)
             self.viewers.pop(1)
+            self.session.insert(
+                0,
+                {
+                    "options": options,
+                    "path": self.ui.edit_config_widget.path,
+                    "data": self.ui.edit_config_widget.data,
+                },
+            )
+            self.session.pop(1)
         else:
             self.viewers.append(viewer)
+            self.session.append(
+                {
+                    "options": options,
+                    "path": self.ui.edit_config_widget.path,
+                    "data": self.ui.edit_config_widget.data,
+                }
+            )
 
-        viewer.closed.connect(self.move_viewers_on_empty)
+        viewer.closed.connect(self.remove_viewer)
         viewer.clicked.connect(self.focus_viewer)
         self.ui.viewers_grid_layout.addWidget(viewer, row, column)
 
@@ -116,7 +135,7 @@ class EditConfigWindow(QMainWindow):
             options,
         )
 
-    def move_viewers_on_empty(self, row: int, column: int):
+    def remove_viewer(self, row: int, column: int):
 
         last_viewer_ind = len(self.viewers) % 9 - 1
 
@@ -133,7 +152,9 @@ class EditConfigWindow(QMainWindow):
                 row, column
             ).widget()
 
-        self.viewers.remove(deleted_viewer)
+        del_index = self.viewers.index(deleted_viewer)
+        self.viewers.pop(del_index)
+        self.session.pop(del_index)
         deleted_viewer.deleteLater()
 
         i = deleted_index
@@ -180,18 +201,24 @@ class EditConfigWindow(QMainWindow):
 
             self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
 
-    def process(self, show: bool = True, options: list[bool] = None):
+    def process(
+        self,
+        show: bool = True,
+        options: list[bool] = None,
+        path: str = None,
+        data: list = None,
+    ):
         self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
         if not show:
             self.hidden_processors.append(
                 VideoProcessingThread(
                     False,
-                    self.ui.edit_config_widget.path,
+                    path or self.ui.edit_config_widget.path,
                     (
                         self.ui.edit_config_widget.height(),
                         self.ui.edit_config_widget.width(),
                     ),
-                    self.ui.edit_config_widget.data,
+                    data or self.ui.edit_config_widget.data,
                     options,
                     parent=self,
                 )
@@ -202,6 +229,54 @@ class EditConfigWindow(QMainWindow):
             return
 
         self.add_viewer(options)
+
+    def save_session(self):
+
+        path = get_user_path_save_last_dir(
+            self,
+            "s",
+            "Выберите куда сохранить файл сессии",
+            "YAML (*.yaml)",
+            "GUI/user_files/last_session_folder.txt",
+        )
+
+        if len(path) == 0:
+            return
+
+        with Path(path).open("w") as file:
+            yaml.safe_dump(self.session, file)
+
+    def load_session(self):
+
+        path = get_user_path_save_last_dir(
+            self,
+            "o",
+            "Выберите файл сессии",
+            "YAML (*.yaml)",
+            "GUI/user_files/last_session_folder.txt",
+        )
+
+        if len(str(path)) == 0:
+            return
+
+        with Path(path).open("r") as file:
+            session = yaml.safe_load(file)
+
+        for i in range(len(self.viewers)):
+            self.ui.viewers_grid_layout.removeItem(
+                self.ui.viewers_grid_layout.itemAt(i)
+            )
+        self.viewers = []
+        self.update_grid_stretch()
+        # for viewer_params in session:
+        #     self.ui.edit_config_widget.path = viewer_params["path"]
+        #     self.process(
+        #         True,
+        #         viewer_params["options"],
+        #         viewer_params["path"],
+        #         viewer_params["data"],
+        #     )
+        self.ui.stacked_widget.setCurrentIndex(1)
 
 
 class StartPage(QMainWindow):
@@ -215,9 +290,23 @@ class StartPage(QMainWindow):
 
         self.ui.button_load_video.clicked.connect(self.open_video_file)
         self.ui.link_video_edit.enterKeyPressed.connect(self.view_frame_to_config)
+        self.ui.load_session_button.clicked.connect(self.load_session)
         self.ui.error_message.setVisible(False)
         self.aspect_ratio = None
         self.view_edit_window = None
+
+    def set_view_edit_window(self):
+        if self.view_edit_window is None:
+            if self.parent() is None:
+                self.view_edit_window = EditConfigWindow(parent=self)
+            else:
+                self.view_edit_window = self.parent()
+
+    def load_session(self):
+        self.set_view_edit_window()
+        self.view_edit_window.load_session()
+        self.view_edit_window.show()
+        self.hide()
 
     def open_video_file(self):
         path = get_user_path_save_last_dir(
@@ -234,12 +323,7 @@ class StartPage(QMainWindow):
         if len(path) == 0:
             return
 
-        if self.view_edit_window is None:
-            if self.parent() is None:
-                self.view_edit_window = EditConfigWindow(parent=self)
-            else:
-                self.view_edit_window = self.parent()
-
+        self.set_view_edit_window()
         if self.view_edit_window.set_path(path):
             self.view_edit_window.show()
             self.hide()

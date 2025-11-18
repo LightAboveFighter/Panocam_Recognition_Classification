@@ -36,10 +36,18 @@ class Ui_MainWindow(object):
         self.add_video_button = QtWidgets.QPushButton(parent=self.viewing_page)
         self.add_video_button.setObjectName("add_video_button")
         self.horizontalLayout.addWidget(self.add_video_button)
+        self.save_session_button = QtWidgets.QPushButton(parent=self.viewing_page)
+        self.save_session_button.setObjectName("save_session_button")
+        self.horizontalLayout.addWidget(self.save_session_button)
+        self.load_session_button = QtWidgets.QPushButton(parent=self.viewing_page)
+        self.load_session_button.setObjectName("load_session_button")
+        self.horizontalLayout.addWidget(self.load_session_button)
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
         self.horizontalLayout.setStretch(0, 1)
-        self.horizontalLayout.setStretch(1, 1000)
+        self.horizontalLayout.setStretch(1, 1)
+        self.horizontalLayout.setStretch(2, 1)
+        self.horizontalLayout.setStretch(3, 3)
         self.gridLayout_4.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         self.viewers_grid_layout = QtWidgets.QGridLayout()
         self.viewers_grid_layout.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMaximumSize)
@@ -67,6 +75,8 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.add_video_button.setText(_translate("MainWindow", "Add video"))
+        self.save_session_button.setText(_translate("MainWindow", "Save session"))
+        self.load_session_button.setText(_translate("MainWindow", "Load session"))
 from editconfigwidget import EditConfigWidget
 
 
