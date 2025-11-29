@@ -267,10 +267,14 @@ class EditConfigWidget(QWidget):
         self.curr_id = 0
         self.curr_scale = 1.0
 
-    def set_path(self, path: str):
+    def set_path(self, path: str) -> bool:
         """change frame, delete all previous data"""
         self.path = path
-        self._video_cap = CamGear(source=path)
+        try:
+            self._video_cap = CamGear(source=path)
+        except Exception as err:
+            print(err)
+            return False
         self.data = []
         im = self._video_cap.read()
         if not im is None:
