@@ -18,7 +18,7 @@ class VideoProcessingThread(QThread):
     def __init__(
         self,
         show: bool,
-        path: cv.VideoCapture,
+        path: str,
         shape: tuple[int],
         data: list[dict],
         options: list[bool],
