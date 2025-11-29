@@ -21,6 +21,10 @@ from source.tracker import AI_names
 
 class EditConfigWindow(QMainWindow):
 
+    session: list[dict]
+    viewers: list[ThreadedViewer]
+    hidden_processors: list[VideoProcessingThread]
+
     def __init__(self, parent):
         super().__init__(parent=parent)
         self.ui = EditConfigWindowUi()
@@ -33,7 +37,6 @@ class EditConfigWindow(QMainWindow):
 
         self.hidden_processors = []
         self.viewers = []
-        self.default_widget = QWidget()
         self.saved_viewer_size = None
         self.session = []
 
@@ -258,9 +261,12 @@ class EditConfigWindow(QMainWindow):
             return
 
         with Path(path).open("w") as file:
-            yaml.safe_dump(self.session, file)
+            yaml.safe_dump(self.session, file, encoding="utf-8")
 
-    def load_session(self):
+    def load_session(self) -> bool:
+        """
+        returns: success
+        """
 
         path = get_user_path_save_last_dir(
             self,
@@ -271,7 +277,7 @@ class EditConfigWindow(QMainWindow):
         )
 
         if len(str(path)) == 0:
-            return
+            return False
 
         with Path(path).open("r") as file:
             session = yaml.safe_load(file)
@@ -283,7 +289,8 @@ class EditConfigWindow(QMainWindow):
         self.viewers = []
         self.update_grid_stretch()
         for viewer_params in session:
-            self.ui.edit_config_widget.path = viewer_params["path"]
+            self.ui.edit_config_widget.set_path(viewer_params["path"])
+            self.ui.edit_config_widget.construct_data(viewer_params["data"])
             self.process(
                 True,
                 viewer_params["options"],
@@ -291,6 +298,7 @@ class EditConfigWindow(QMainWindow):
                 viewer_params["data"],
             )
         self.ui.stacked_widget.setCurrentIndex(1)
+        return True
 
 
 class ExportModelsThread(QThread):
@@ -332,7 +340,8 @@ class StartPage(QMainWindow):
 
     def load_session(self):
         self.set_view_edit_window()
-        self.view_edit_window.load_session()
+        if not self.view_edit_window.load_session():
+            return
         self.view_edit_window.show()
         self.hide()
 
