@@ -5,10 +5,18 @@ from pathlib import Path
 from view_edit_window import Ui_MainWindow as EditConfigWindowUi
 from video_processing_thread import VideoProcessingThread
 from threaded_viewer import ThreadedViewer
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, QThread
 import yaml
-
+import torch.cuda as cuda
+from ultralytics import YOLO
 from file_methods import get_user_path_save_last_dir
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from source.tracker import AI_names
 
 
 class EditConfigWindow(QMainWindow):
@@ -279,6 +287,22 @@ class EditConfigWindow(QMainWindow):
         self.ui.stacked_widget.setCurrentIndex(1)
 
 
+class ExportModelsThread(QThread):
+    def run():
+        if cuda.is_available():
+            for model_name in AI_names:
+                step_model = YOLO(model_name+"onnx")
+                try:
+                    step_model.export(
+                        format="engine",
+                        dynamic=True,
+                        simplify=True,
+                        opset=17  
+                    )
+                except Exception as err:
+                    print(err)
+
+
 class StartPage(QMainWindow):
 
     thread_widgets: list[QWidget]
@@ -293,7 +317,8 @@ class StartPage(QMainWindow):
         self.ui.load_session_button.clicked.connect(self.load_session)
         self.ui.error_message.setVisible(False)
         self.aspect_ratio = None
-        self.view_edit_window = None
+        self.view_edit_window = None 
+        self._exporting_thread = ExportModelsThread()
 
     def set_view_edit_window(self):
         if self.view_edit_window is None:

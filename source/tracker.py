@@ -2,9 +2,10 @@ import cv2 as cv
 from ultralytics import YOLO
 from .instrument_manager import InstrumentManager
 import numpy as np
+from pathlib import Path
 
 
-AI_names = [f"materials/trained_models/yolo11n.pt"]
+AI_names = [f"materials/trained_models/yolo11n-pose"]
 
 
 class Tracker:
@@ -23,14 +24,16 @@ class Tracker:
             tracker_name: default is bytetrack.yaml
         """
 
-        # self.model = YOLO(f"materials/trained_models/{model_name}")
-
         self.models = []
         for option, model_name in zip(
             options, [*AI_names, *([None] * (len(options) - len(AI_names)))]
         ):
             if option and (not model_name is None):
-                self.models.append(YOLO(model_name))
+
+                path = model_name + ".onnx"
+                if Path(model_name+"engine").exists():
+                    path = model_name + ".engine"
+                self.models.append(YOLO(path))
             else:
                 self.models.append(None)
 
