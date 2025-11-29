@@ -2,6 +2,7 @@ import cv2 as cv
 from ultralytics import YOLO
 from .instrument_manager import InstrumentManager
 import numpy as np
+from vidgear.gears import WriteGear
 from pathlib import Path
 
 
@@ -13,7 +14,7 @@ class Tracker:
     def __init__(
         self,
         data: list[dict],
-        video_out: cv.VideoWriter = None,
+        video_out: WriteGear = None,
         tracker_name: str = None,
         options: list[bool] = None,
         verbose=False,

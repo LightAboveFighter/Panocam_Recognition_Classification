@@ -17,6 +17,7 @@ from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
 from file_methods import get_user_path_save_last_dir, rec_create_file
+from vidgear.gears import CamGear
 
 
 class ToolType(Enum):
@@ -194,7 +195,7 @@ class EditConfigWidget(QWidget):
 
     video_processor: VideoProcessingThread
     data: list[dict]
-    _video_cap: cv.VideoCapture
+    _video_cap: CamGear
     processing = pyqtSignal(bool, list)  # show, AI options
 
     def __init__(self, parent=None):
@@ -257,15 +258,15 @@ class EditConfigWidget(QWidget):
     def set_path(self, path: str):
         """change frame, delete all previous data"""
         self.path = path
-        self._video_cap = cv.VideoCapture(path)
+        self._video_cap = CamGear(source=path)
         self.data = []
-        success, im = self._video_cap.read()
-        if success:
+        im = self._video_cap.read()
+        if not im is None:
             self.change_frame(im)
         else:
-            self._video_cap.release()
+            self._video_cap.stop()
             self._video_cap = None
-        return success
+        return not im is None
 
     def change_frame(self, frame):
         image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
