@@ -4,24 +4,46 @@ from collections import deque
 from shapely import LineString
 from enum import Enum
 from abc import ABC, abstractmethod
+from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsItem
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from GUI.ngon_item import NgonItem
+
+
+def get_track_object_from_dict(data: dict):
+    obj_type = data.pop("type")
+    if obj_type == "border":
+        return Border(**data)
+    if obj_type == "detect_window":
+        data.pop("accuracy")
+        return DetectWindow(**data)
 
 
 class AbstractTrackObject(ABC):
     track_type: str
 
-    def __init__(self, id: int):
-        self.id = id
+    def __init__(self, room_id: int):
+        self.room_id = room_id
 
     @abstractmethod
-    def get_type(self):
+    def get_type(self) -> str:
         pass
 
     @abstractmethod
     def update(self):
         pass
 
-    def draw(self, im):
-        return im
+    @abstractmethod
+    def get_qt_graphic_item(self) -> QGraphicsItem:
+        pass
+
+    @abstractmethod
+    def get_dict(self) -> dict:
+        pass
 
 
 def get_track_obj(obj_dict: dict) -> AbstractTrackObject:
@@ -54,16 +76,17 @@ class Border(AbstractTrackObject):
 
     def __init__(
         self,
-        id: int,
+        room_id: int,
         accuracy: int,
         point1: tuple[float],
         point2: tuple[float],
     ):
         """in и out определяются по часовой стрелке от первой точки"""
 
-        super().__init__(id)
+        super().__init__(room_id)
 
         self.contain = 0
+        self.accuracy = accuracy
         self.nearby = {}
         self.intersected = False
         self.incident_level = [IncidentLevel.NO_INCIDENT, IncidentLevel.NO_INCIDENT]
@@ -106,6 +129,15 @@ class Border(AbstractTrackObject):
     def get_type(self):
         return "border"
 
+    def get_dict(self) -> dict:
+        return {
+            "type": self.get_type(),
+            "accuracy": self.accuracy,
+            "point1": list(map(int, self.p1)),
+            "point2": list(map(int, self.p2)),
+            "room_id": self.room_id,
+        }
+
     def under_surveillance(self, point: tuple[float]) -> bool:
         point_tuple = (int(point[0]), int(point[1]))
         return (cv.pointPolygonTest(self.field_in, point_tuple, False) == 1) or (
@@ -144,7 +176,10 @@ class Border(AbstractTrackObject):
         )
 
     def get_incident(self) -> tuple[int, tuple[IncidentLevel]]:
-        return (self.id, self.incident_level)
+        return (self.room_id, self.incident_level)
+
+    def get_qt_graphic_item(self):
+        return QGraphicsLineItem(*self.p1, *self.p2, parent=None)
 
     def draw(self, im) -> np.ndarray:
         if self.intersected:
@@ -188,14 +223,14 @@ class DetectWindow(AbstractTrackObject):
 
     def __init__(
         self,
-        id: int,
+        room_id: int,
         point1: tuple[float],
         point2: tuple[float],
         point3: tuple[float],
         point4: tuple[float],
     ):
 
-        super().__init__(id)
+        super().__init__(room_id)
 
         self.xy_s = (
             list(map(int, point1))[:2],
@@ -207,6 +242,14 @@ class DetectWindow(AbstractTrackObject):
 
     def get_type(self):
         return "detect_window"
+
+    def get_dict(self) -> dict:
+        return {
+            "type": self.get_type(),
+            "accuracy": 20,
+            **{f"point{i+1}": p for i, p in enumerate(self.xy_s)},
+            "room_id": self.room_id,
+        }
 
     def update(self, im: np.ndarray):
 
@@ -242,6 +285,13 @@ class DetectWindow(AbstractTrackObject):
         #     )
         # ) / (self.closed_ref.shape[0] * self.closed_ref.shape[1] * 255)
         # print(self.is_closed)
+
+    def get_qt_graphic_item(self):
+        data = []
+        for x, y in self.xy_s:
+            data.append(x)
+            data.append(y)
+        return NgonItem(4, *data)
 
     def draw(self, im: np.ndarray):
 

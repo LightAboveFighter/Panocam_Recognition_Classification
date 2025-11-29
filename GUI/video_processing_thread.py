@@ -9,11 +9,12 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from source.tracker import Tracker
+from source.track_objects import AbstractTrackObject
 
 
 class VideoProcessingThread(QThread):
 
-    frame_processed = pyqtSignal(np.ndarray)
+    frame_processed = pyqtSignal(np.ndarray, dict)
     processing_complete = pyqtSignal()
 
     def __init__(
@@ -21,7 +22,7 @@ class VideoProcessingThread(QThread):
         show: bool,
         path: str,
         shape: tuple[int],
-        data: list[dict],
+        data: list[AbstractTrackObject],
         options: list[bool],
         parent=...,
     ):
@@ -78,9 +79,9 @@ class VideoProcessingThread(QThread):
                     if not success:
                         break
 
-                frame = tracker.track_frame(frame)
+                frame, frame_info = tracker.track_frame(frame)
                 if self.show:
-                    self.frame_processed.emit(frame)
+                    self.frame_processed.emit(frame, frame_info)
         except Exception as err:
             print(err)
             raise err

@@ -113,7 +113,10 @@ class EditConfigWindow(QMainWindow):
                 {
                     "options": options,
                     "path": self.ui.edit_config_widget.path,
-                    "data": self.ui.edit_config_widget.data,
+                    "data": [
+                        track_object.get_dict()
+                        for track_object in self.ui.edit_config_widget.data
+                    ],
                 },
             )
             self.session.pop(1)
@@ -123,7 +126,10 @@ class EditConfigWindow(QMainWindow):
                 {
                     "options": options,
                     "path": self.ui.edit_config_widget.path,
-                    "data": self.ui.edit_config_widget.data,
+                    "data": [
+                        track_object.get_dict()
+                        for track_object in self.ui.edit_config_widget.data
+                    ],
                 }
             )
 
@@ -291,13 +297,10 @@ class ExportModelsThread(QThread):
     def run():
         if cuda.is_available():
             for model_name in AI_names:
-                step_model = YOLO(model_name+"onnx")
+                step_model = YOLO(model_name + "onnx")
                 try:
                     step_model.export(
-                        format="engine",
-                        dynamic=True,
-                        simplify=True,
-                        opset=17  
+                        format="engine", dynamic=True, simplify=True, opset=17
                     )
                 except Exception as err:
                     print(err)
@@ -317,7 +320,7 @@ class StartPage(QMainWindow):
         self.ui.load_session_button.clicked.connect(self.load_session)
         self.ui.error_message.setVisible(False)
         self.aspect_ratio = None
-        self.view_edit_window = None 
+        self.view_edit_window = None
         self._exporting_thread = ExportModelsThread()
 
     def set_view_edit_window(self):

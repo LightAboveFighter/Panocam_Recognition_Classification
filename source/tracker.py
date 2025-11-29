@@ -4,6 +4,7 @@ from .instrument_manager import InstrumentManager
 import numpy as np
 from vidgear.gears import WriteGear
 from pathlib import Path
+from .track_objects import AbstractTrackObject
 
 
 AI_names = [f"materials/trained_models/yolo11n-pose"]
@@ -13,7 +14,7 @@ class Tracker:
 
     def __init__(
         self,
-        data: list[dict],
+        data: list[AbstractTrackObject],
         video_out: WriteGear = None,
         tracker_name: str = None,
         options: list[bool] = None,
@@ -32,7 +33,7 @@ class Tracker:
             if option and (not model_name is None):
 
                 path = model_name + ".onnx"
-                if Path(model_name+"engine").exists():
+                if Path(model_name + "engine").exists():
                     path = model_name + ".engine"
                 self.models.append(YOLO(path))
             else:
@@ -46,8 +47,11 @@ class Tracker:
         )
         self.manager.load_data(data)
 
-    def get_model_result(self, model, name, frame_in, frame_out):
+    def get_model_result(
+        self, model, name, frame_in, frame_out
+    ) -> tuple[np.ndarray, list]:
 
+        data = {"people_tracks": []}
         if name == AI_names[0]:
             results = model.track(
                 frame_in,
@@ -75,22 +79,8 @@ class Tracker:
 
                         people_count += 1
                         x1, y1, x2, y2 = box.astype(int)
-
-                        frame_out = cv.rectangle(
-                            frame_out, (x1, y1), (x2, y2), (0, 0, 255), 2
-                        )
+                        data["people_tracks"].append([[x1, y1], [x2, y2]])
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
-                        frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
-
-                        frame_out = cv.putText(
-                            frame_out,
-                            f"({center[0]}, {center[1]})",
-                            (x2 - 5, y2 - 5),
-                            cv.FONT_HERSHEY_SIMPLEX,
-                            0.5,
-                            (255, 0, 0),
-                            1,
-                        )
 
                         if ids is not None:
                             point_update_pack.append((int(ids[i]), center))
@@ -106,28 +96,22 @@ class Tracker:
                     (255, 0, 0),
                     2,
                 )
-
-            return frame_out
+        return frame_out, data
 
     def track_frame(
         self,
         frame: np.ndarray,
     ):
         frame_out = frame
+        frame_info = {"people_tracks": []}
         for model, name in zip(self.models, AI_names):
             if model is None:
                 continue
-            frame_out = self.get_model_result(model, name, frame, frame_out)
+            frame_out, data = self.get_model_result(model, name, frame, frame_out)
+            for key in frame_info.keys():
+                frame_info[key].extend(data[key])
 
         if not self.video_out is None:
             self.video_out.write(frame_out)
 
-        return frame_out
-
-        # if show:
-        #     cv.imshow(
-        #         "YOLO11 Tracking",
-        #         cv.resize(
-        #             frame, (int(frame.shape[1] / 1.2), int(frame.shape[0] / 1.2))
-        #         ),
-        #     )
+        return frame_out, frame_info

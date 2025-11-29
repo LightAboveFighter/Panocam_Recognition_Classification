@@ -1,4 +1,9 @@
-from .track_objects import Border, IncidentLevel, DetectWindow, get_track_obj
+from .track_objects import (
+    Border,
+    IncidentLevel,
+    DetectWindow,
+    AbstractTrackObject,
+)
 import yaml
 import numpy as np
 from datetime import datetime
@@ -42,11 +47,9 @@ class InstrumentManager:
 
         self.load_data(data)
 
-    def load_data(self, data: list[dict]):
-        objects = [get_track_obj(obj_dict) for obj_dict in data]
-
-        for j in range(len(objects)):
-            if objects[j].get_type() != "border":
+    def load_data(self, data: list[AbstractTrackObject]):
+        for j in range(len(data)):
+            if data[j].get_type() != "border":
                 continue
             i = j + 1
             # объединяем окна и границы с одинаковыми айди
@@ -54,16 +57,16 @@ class InstrumentManager:
             window = None
             while i < len(data):
                 if (
-                    objects[i].get_type() == "detect_window"
-                    and objects[i].id == objects[j].id
+                    data[i].get_type() == "detect_window"
+                    and data[i].room_id == data[j].room_id
                 ):
-                    window = objects[i]
+                    window = data[i]
                 i += 1
 
-            self.objs[objects[j].id] = (objects[j], window)
+            self.objs[data[j].room_id] = (data[j], window)
 
     def add_instrument(self, border: Border, detect_window: DetectWindow):
-        self.objs[border.id] = (border, detect_window)
+        self.objs[border.room_id] = (border, detect_window)
 
     def update(self, im: np.ndarray, ids_points: list[tuple[int, tuple[float]]]):
         for obj in self.objs.values():
@@ -72,7 +75,7 @@ class InstrumentManager:
                 continue
             obj[1].update(im)
 
-    def write_incedents(self):
+    def write_incidents(self):
 
         for obj in self.objs.values():
             room_id, incident_levels = obj[0].get_incident()
@@ -95,7 +98,7 @@ class InstrumentManager:
 
         incident_level = IncidentLevel.NO_INCIDENT
         for obj in self.objs.values():
-            im = obj[0].draw(im)
+            # im = obj[0].draw(im)
             if obj[1] is None:
                 continue
             im = obj[1].draw(im)
@@ -109,7 +112,7 @@ class InstrumentManager:
                 incident_level = IncidentLevel.CLOSED_EMPTY
                 break
         if not self.incidents_file is None:
-            self.write_incedents()
+            self.write_incidents()
 
         lamp_color = (0, 255, 73)  # green
         if incident_level == IncidentLevel.CUSTOMERS_2:
