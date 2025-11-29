@@ -1,6 +1,7 @@
 from PyQt6.QtCore import QThread, pyqtSignal
-import cv2 as cv
 import numpy as np
+from vidgear.gears import CamGear, WriteGear
+import time
 
 import sys
 import os
@@ -26,7 +27,6 @@ class VideoProcessingThread(QThread):
     ):
         super().__init__(parent)
         self.path = path
-        self._video_cap = None
         self.shape = shape
         self.data = data
         self.show = show
@@ -49,31 +49,49 @@ class VideoProcessingThread(QThread):
 
     def run(self):
 
-        # video_out = cv.VideoWriter(
-        #     f"materials/out/{id}.avi",
-        #     fourcc=cv.VideoWriter_fourcc(*"XVID"),
-        #     fps=20.0,
-        #     frameSize=(self.shape[1], self.shape[0]),
-        # )
+        output_params = {
+            "-input_framerate": 25,
+            "-vcodec": "libx264",    # Кодек для MP4[citation:5]
+        }
+        writer = WriteGear(
+            output=f"materials/out/{id(self)}.avi",
+            compression_mode=False,
+            **output_params
+        )
         try:
-            tracker = Tracker(self.data, video_out=None, options=self.options)
-            self._video_cap = cv.VideoCapture(self.path)
+            tracker = Tracker(self.data, video_out=writer, options=self.options)
+            _video_cap = CamGear(source=(self.path), logging=True).start()
 
-            while self._video_cap.isOpened() and self._is_running:
+            while self._is_running:
 
-                success, frame = self._video_cap.read()
-                if not success:
-                    break
+                frame = _video_cap.read()
+                if frame is None:
+                    success = False
+                    for i in range(5):
+                        time.sleep(0.2)
+                        _video_cap.stop()
+                        _video_cap = CamGear(source=(self.path), logging=True).start()                        
+                        frame = _video_cap.read()
+                        if not frame is None:
+                            success = True
+                            break
+                    if not success:
+                        break
 
                 frame = tracker.track_frame(frame)
                 if self.show:
                     self.frame_processed.emit(frame)
         except Exception as err:
             print(err)
-            pass
+            raise err
+        
         finally:
-            # video_out.release()
+            if not writer is None:
+                writer.close()
+                writer = None
             self.stop()
-            if not self._video_cap is None:
-                self._video_cap.release()
+            if not _video_cap is None:
+                _video_cap.stop()
+                _video_cap = None
+                print("Stopped ", self.path)
             self.processing_complete.emit()
