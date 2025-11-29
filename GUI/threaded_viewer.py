@@ -1,8 +1,24 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QSizePolicy, QPushButton
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtWidgets import (
+    QGraphicsView,
+    QGraphicsScene,
+    QSizePolicy,
+    QPushButton,
+    QGraphicsRectItem,
+    QGraphicsItem,
+)
+from PyQt6.QtGui import QPixmap, QImage, QPen, QColor, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from video_processing_thread import VideoProcessingThread
 import cv2 as cv
+from random_qt_color import get_rand_brush_color
+from items_manager import ItemsManager
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from source.track_objects import AbstractTrackObject
 
 
 class HidingButton(QPushButton):
@@ -28,6 +44,7 @@ class ThreadedViewer(QGraphicsView):
     scene: QGraphicsScene
     clicked = pyqtSignal(int, int)  # row, column
     closed = pyqtSignal(int, int)  # row, column
+    items = QGraphicsItem
 
     def __init__(
         self,
@@ -46,7 +63,19 @@ class ThreadedViewer(QGraphicsView):
         self.button.hide()
         self.button.clicked.connect(self.close_on_button)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        self.setOptimizationFlags(
+            QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing
+            | QGraphicsView.OptimizationFlag.DontSavePainterState
+        )
+        self.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
+        )
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.setCacheMode(QGraphicsView.CacheModeFlag.CacheBackground)
         self.setFrameStyle(0)
+        self.items_manager = ItemsManager(self.scene)
+        self.pixmap = None
 
     def showEvent(self, event):
         """Обновление масштабирования при показе виджета"""
@@ -94,11 +123,11 @@ class ThreadedViewer(QGraphicsView):
 
         return super().mousePressEvent(event)
 
-    def change_frame(self, frame):
+    def change_frame(self, frame, frame_info):
         image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         height, width, channels = image.shape
         bytes_per_line = channels * width
-        self.current_frame = QPixmap.fromImage(
+        current_frame = QPixmap.fromImage(
             QImage(
                 image.data,
                 width,
@@ -107,15 +136,21 @@ class ThreadedViewer(QGraphicsView):
                 QImage.Format.Format_RGB888,
             )
         )
-        self.scene.clear()
-        self.scene.addPixmap(self.current_frame)
+        self.items_manager.update(frame_info)
+
+        if self.pixmap is None:
+            self.pixmap = self.scene.addPixmap(current_frame)
+        else:
+            self.pixmap.setPixmap(current_frame)
+        self.pixmap.setZValue(-1)
+
         self.scene.setSceneRect(
             0,
             0,
-            self.current_frame.width(),
-            self.current_frame.height(),
+            current_frame.width(),
+            current_frame.height(),
         )
-        self.aspect_ratio = self.current_frame.height() / self.current_frame.width()
+        self.aspect_ratio = current_frame.height() / current_frame.width()
 
     def close_on_button(self):
         self.button.hide()
@@ -124,13 +159,14 @@ class ThreadedViewer(QGraphicsView):
 
     def closeEvent(self, event):
         self.clear_thread()
+        self.scene.clear()
         return super().closeEvent(event)
 
     def __del__(self):
         if hasattr(self, "video_processor") and self.video_processor is not None:
             self.clear_thread()
 
-    def clear_thread(self, wait_time: int = 5000):  # Увеличили время ожидания
+    def clear_thread(self, wait_time: int = 5000):
         if self.video_processor is None:
             return
 
@@ -155,8 +191,20 @@ class ThreadedViewer(QGraphicsView):
         self.video_processor = None
 
     def start_video_thread(
-        self, path: str, shape: tuple[int], data: list[dict], options: list[bool]
+        self,
+        path: str,
+        shape: tuple[int],
+        data: list[AbstractTrackObject],
+        options: list[bool],
     ):
+
+        for track_object in data:
+            item = track_object.get_qt_graphic_item()
+            brush, pen = get_rand_brush_color(alpha=40)
+            if track_object.get_type() == "detect_window":
+                item.setBrush(brush)
+            item.setPen(pen)
+            self.scene.addItem(item)
 
         self.video_processor = VideoProcessingThread(
             True,

@@ -11,13 +11,25 @@ from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
 import yaml
-from numpy.random import randint
+from random_qt_color import get_rand_brush_color
 from ngon_item import NgonItem
 from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
 from file_methods import get_user_path_save_last_dir, rec_create_file
 from vidgear.gears import CamGear
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from source.track_objects import (
+    AbstractTrackObject,
+    Border,
+    DetectWindow,
+    get_track_object_from_dict,
+)
 
 
 class ToolType(Enum):
@@ -51,27 +63,26 @@ class DrawableGraphicsScene(QGraphicsScene):
         self.second_point = (0, 0)
 
     def set_color(self):
-        r, g, b = randint(20, 255), randint(20, 255), randint(20, 255)
-        self.pen = QPen(QColor(r - 10, g - 10, b - 10), 2)
-        self.brush = QBrush(QColor(r, g, b, 128))
+        self.brush, self.pen = get_rand_brush_color(alpha=100)
 
     def set_current_tool(self, tool: ToolType):
         self.current_tool = tool
 
-    def draw_objects(self, data: list[dict]):
-        for obj in data:
-            obj_type = obj.get("type", "notype")
+    def draw_objects(self, data: list[AbstractTrackObject]):
+        for track_object in data:
+            dict_data = track_object.get_dict()
+            obj_type = dict_data.get("type", "notype")
 
-            x1, y1 = obj["point1"]
-            x2, y2 = obj["point2"]
+            x1, y1 = dict_data["point1"]
+            x2, y2 = dict_data["point2"]
 
             drawing = None
             self.set_color()
             if obj_type == "border":
                 drawing = QGraphicsLineItem(x1, y1, x2, y2)
             elif obj_type == "detect_window":
-                x3, y3 = obj["point3"]
-                x4, y4 = obj["point4"]
+                x3, y3 = dict_data["point3"]
+                x4, y4 = dict_data["point4"]
                 drawing = NgonItem(4, x1, y1, x2, y2, x3, y3, x4, y4)
                 drawing.setBrush(self.brush)
             else:
@@ -194,7 +205,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 class EditConfigWidget(QWidget):
 
     video_processor: VideoProcessingThread
-    data: list[dict]
+    data: list[AbstractTrackObject]
     _video_cap: CamGear
     processing = pyqtSignal(bool, list)  # show, AI options
 
@@ -252,6 +263,7 @@ class EditConfigWidget(QWidget):
         self._video_cap = None
         self.video_processor = None
         self.data = []
+        self.path = None
         self.curr_id = 0
         self.curr_scale = 1.0
 
@@ -332,17 +344,23 @@ class EditConfigWidget(QWidget):
         zoom_val = self.zoom_value()
 
         rescaled_data = []
-        for obj in data:
-            res = obj.copy()
-            res["point1"] = [
-                obj["point1"][0] * zoom_val,
-                obj["point1"][1] * zoom_val,
-            ]
-            res["point2"] = [
-                obj["point2"][0] * zoom_val,
-                obj["point2"][1] * zoom_val,
-            ]
-            rescaled_data.append(res)
+        for track_object in data:
+            res = track_object.get_dict()
+
+            for i in range(1, 3):
+                res[f"point{i}"] = [
+                    res[f"point{i}"][0] * zoom_val,
+                    res[f"point{i}"][1] * zoom_val,
+                ]
+
+            if "point4" in res.keys():
+                for i in range(3, 5):
+                    res[f"point{i}"] = [
+                        res[f"point{i}"][0] * zoom_val,
+                        res[f"point{i}"][1] * zoom_val,
+                    ]
+
+            rescaled_data.append(get_track_object_from_dict(res))
         return rescaled_data
 
     def heightForWidth(self, width):
@@ -373,15 +391,7 @@ class EditConfigWidget(QWidget):
             [int(p1_x / zoom_val), int(p1_y / zoom_val)],
             [int(p2_x / zoom_val), int(p2_y / zoom_val)],
         )
-        self.data.append(
-            {
-                "type": "border",
-                "room_id": self.curr_id,
-                "accuracy": 20,
-                "point1": pack[0],
-                "point2": pack[1],
-            }
-        )
+        self.data.append(Border(self.curr_id, 20, pack[0], pack[1]))
 
         self.set_drag(True)
         self.curr_id += 1
@@ -404,17 +414,7 @@ class EditConfigWidget(QWidget):
             [int(p3_x / zoom_val), int(p3_y / zoom_val)],
             [int(p4_x / zoom_val), int(p4_y / zoom_val)],
         )
-        self.data.append(
-            {
-                "type": "detect_window",
-                "room_id": self.curr_id,
-                "accuracy": 20,
-                "point1": pack[0],
-                "point2": pack[1],
-                "point3": pack[2],
-                "point4": pack[3],
-            }
-        )
+        self.data.append(DetectWindow(self.curr_id, *pack))
 
         self.stop_drawing()
         self.curr_id += 1
@@ -438,8 +438,30 @@ class EditConfigWidget(QWidget):
         if len(path) == 0:
             return
 
+        dict_data = [track_object.get_dict() for track_object in self.data]
         with open(path, "w+") as file:
-            yaml.dump(self.data, file)
+            yaml.dump(dict_data, file)
+
+    def construct_data(self, data: list[dict]):
+        """construct valid self.data from raw list[dict]"""
+        approved = []
+        for obj in data:
+            x1, y1 = obj["point1"]
+            if x1 > self.current_frame.width() or y1 > self.current_frame.height():
+                continue
+
+            x2, y2 = obj["point2"]
+            if x2 > self.current_frame.width() or y2 > self.current_frame.height():
+                continue
+
+            if x1 == x2 and y1 == y2:
+                continue
+
+            approved.append(obj)
+            self.curr_id = max(self.curr_id, obj["room_id"])
+
+        for dict_info in approved:
+            self.data.append(get_track_object_from_dict(dict_info))
 
     def load_config(self):
         path = get_user_path_save_last_dir(
@@ -456,24 +478,9 @@ class EditConfigWidget(QWidget):
         with open(path, "r") as file:
             data = yaml.safe_load(file)
 
-        approved = []
-        resized = []
-        for obj in data:
-            x1, y1 = obj["point1"]
-            if x1 > self.current_frame.width() or y1 > self.current_frame.height():
-                continue
+        self.construct_data(data)
+        resized = self.get_rescaled_data(self.data)
 
-            x2, y2 = obj["point2"]
-            if x2 > self.current_frame.width() or y2 > self.current_frame.height():
-                continue
-
-            if x1 == x2 and y1 == y2:
-                continue
-
-            resized.append(self.get_rescaled_data([obj])[0])
-            approved.append(obj)
-            self.curr_id = max(self.curr_id, obj["room_id"])
-        self.data.extend(approved)
         self.scene.draw_objects(resized)
 
     def process(self):
