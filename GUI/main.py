@@ -302,16 +302,29 @@ class EditConfigWindow(QMainWindow):
 
 
 class ExportModelsThread(QThread):
-    def run():
+    def run(self):
         if cuda.is_available():
             for model_name in AI_names:
-                step_model = YOLO(model_name + "onnx")
+                if Path(model_name + ".engine").exists():
+                    continue
+                step_model = YOLO(model_name + ".pt")
+                failed = False
                 try:
                     step_model.export(
                         format="engine", dynamic=True, simplify=True, opset=17
                     )
                 except Exception as err:
                     print(err)
+                    failed = True
+                if failed:
+                    step_model.export(
+                        format="onnx", dynamic=True, simplify=True, opset=17
+                    )
+            return
+        for model_name in AI_names:
+            if not Path(model_name + ".onnx").exists():
+                step_model = YOLO(model_name + ".pt")
+                step_model.export(format="onnx", dynamic=True, simplify=True, opset=17)
 
 
 class StartPage(QMainWindow):
@@ -330,6 +343,7 @@ class StartPage(QMainWindow):
         self.aspect_ratio = None
         self.view_edit_window = None
         self._exporting_thread = ExportModelsThread()
+        self._exporting_thread.start()
 
     def set_view_edit_window(self):
         if self.view_edit_window is None:
