@@ -66,21 +66,13 @@ class Tracker:
                         if result.boxes.id is not None
                         else None
                     )
-                    classes = (
-                        result.boxes.cls.cpu().numpy()
-                        if result.boxes.id is not None
-                        else None
-                    )
 
                     point_update_pack = []
-                    if boxes is None or classes is None:
+                    if boxes is None:
                         continue
 
-                    for i, inf in enumerate(zip(boxes, classes)):
-                        box, cls = inf
+                    for i, box in enumerate(boxes):
 
-                        # if model.names[cls] != "person":
-                        #     continue
                         people_count += 1
                         x1, y1, x2, y2 = box.astype(int)
 
