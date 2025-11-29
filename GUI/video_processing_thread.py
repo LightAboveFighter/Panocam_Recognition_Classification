@@ -51,12 +51,12 @@ class VideoProcessingThread(QThread):
 
         output_params = {
             "-input_framerate": 25,
-            "-vcodec": "libx264",    # Кодек для MP4[citation:5]
+            "-vcodec": "libx264",  # Кодек для MP4
         }
         writer = WriteGear(
             output=f"materials/out/{id(self)}.avi",
             compression_mode=False,
-            **output_params
+            **output_params,
         )
         try:
             tracker = Tracker(self.data, video_out=writer, options=self.options)
@@ -70,7 +70,7 @@ class VideoProcessingThread(QThread):
                     for i in range(5):
                         time.sleep(0.2)
                         _video_cap.stop()
-                        _video_cap = CamGear(source=(self.path), logging=True).start()                        
+                        _video_cap = CamGear(source=(self.path), logging=True).start()
                         frame = _video_cap.read()
                         if not frame is None:
                             success = True
@@ -84,7 +84,7 @@ class VideoProcessingThread(QThread):
         except Exception as err:
             print(err)
             raise err
-        
+
         finally:
             if not writer is None:
                 writer.close()
