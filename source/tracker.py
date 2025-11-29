@@ -33,7 +33,7 @@ class Tracker:
             if option and (not model_name is None):
 
                 path = model_name + ".onnx"
-                if Path(model_name + "engine").exists():
+                if Path(model_name + ".engine").exists():
                     path = model_name + ".engine"
                 self.models.append(YOLO(path))
             else:
