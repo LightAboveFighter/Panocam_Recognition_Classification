@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
 import yaml
 from random_qt_color import get_rand_brush_color
-from ngon_item import NgonItem
+from graphic_items import NgonItem
 from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread

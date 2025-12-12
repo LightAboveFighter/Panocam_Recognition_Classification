@@ -11,7 +11,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from GUI.ngon_item import NgonItem
+from GUI.graphic_items import NgonItem
 
 
 def get_track_object_from_dict(data: dict):
