@@ -98,11 +98,6 @@ class InstrumentManager:
 
         incident_level = IncidentLevel.NO_INCIDENT
         for obj in self.objs.values():
-            # im = obj[0].draw(im)
-            if obj[1] is None:
-                continue
-            im = obj[1].draw(im)
-        for obj in self.objs.values():
             incident_level = IncidentLevel(
                 max(incident_level.value, obj[0].incident_level[1].value)
             )
