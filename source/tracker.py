@@ -6,8 +6,8 @@ from vidgear.gears import WriteGear
 from pathlib import Path
 from .track_objects import AbstractTrackObject
 
-
-AI_names = [f"materials/trained_models/yolo11n-pose"]
+base = "materials/trained_models/"
+AI_names = [base + "yolo11n-pose", base + "TSD"]
 
 
 class Tracker:
@@ -51,8 +51,8 @@ class Tracker:
         self, model, name, frame_in, frame_out
     ) -> tuple[np.ndarray, list]:
 
-        data = {"people_tracks": []}
-        if name == AI_names[0]:
+        data = {"people": [], "tsds": []}
+        if name in AI_names[:2]:
             results = model.track(
                 frame_in,
                 show=False,
@@ -79,7 +79,12 @@ class Tracker:
 
                         people_count += 1
                         x1, y1, x2, y2 = box.astype(int)
-                        data["people_tracks"].append([[x1, y1], [x2, y2]])
+
+                        if name == AI_names[0]:
+                            data["people"].append([[x1, y1], [x2, y2]])
+                        if name == AI_names[1]:
+                            data["tsds"].append([[x1, y1], [x2, y2]])
+
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
 
                         if ids is not None:
@@ -87,15 +92,16 @@ class Tracker:
                     self.manager.update(frame_out, point_update_pack)
 
                 frame_out = self.manager.draw(frame_out)
-                frame_out = cv.putText(
-                    frame_out,
-                    f"{people_count} people",
-                    (10, 30),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 0, 0),
-                    2,
-                )
+                if name == AI_names[0]:
+                    frame_out = cv.putText(
+                        frame_out,
+                        f"{people_count} people",
+                        (10, 30),
+                        cv.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 0, 0),
+                        2,
+                    )
         return frame_out, data
 
     def track_frame(
@@ -103,7 +109,7 @@ class Tracker:
         frame: np.ndarray,
     ):
         frame_out = frame
-        frame_info = {"people_tracks": []}
+        frame_info = {"people": [], "tsds": []}
         for model, name in zip(self.models, AI_names):
             if model is None:
                 continue

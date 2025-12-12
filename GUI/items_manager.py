@@ -8,15 +8,8 @@ from PyQt6.QtGui import QPen, QBrush, QColor
 from PyQt6.QtCore import QRectF, Qt
 import numpy as np
 
-# import sys
-# import os
 
-# sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-# from source.graphic_objects import AbstractGraphicObject
-
-
-class PeopleTrackGraphicItem(QGraphicsItem):
+class TrackGraphicItem(QGraphicsItem):
 
     def __init__(self, x1: int, y1: int, x2: int, y2: int, parent=...):
         super().__init__(parent)
@@ -95,23 +88,28 @@ class ItemsManager:
             "filled_red": QPen(QColor(255, 0, 0, 0)),
         }
         self.brushes = {"filled_red_circle": QBrush(QColor(255, 0, 0, 0))}
-        self.items = {"people_tracks": []}
+        self.items = {"people": [], "tsds": []}
         self.scene = scene
+
+    def _update_rects(self, data: dict, key: str):
+
+        for i, points in enumerate(data[key]):
+            p1, p2 = points
+            if i >= len(self.items[key]):
+                item = TrackGraphicItem(*p1, *p2, parent=None)
+                self.items[key].append(item)
+                self.scene.addItem(item)
+            else:
+                self.items[key][i].setRect(*p1, *p2)
+                self.items[key][i].show()
+
+        for i in range(
+            len(data[key]),
+            len(self.items[key]),
+        ):
+            self.items[key][i].hide()
 
     def update(self, data: dict):
 
-        for i, points in enumerate(data["people_tracks"]):
-            p1, p2 = points
-            if i >= len(self.items["people_tracks"]):
-                item = PeopleTrackGraphicItem(*p1, *p2, parent=None)
-                self.items["people_tracks"].append(item)
-                self.scene.addItem(item)
-            else:
-                self.items["people_tracks"][i].setRect(*p1, *p2)
-                self.items["people_tracks"][i].show()
-
-        for i in range(
-            len(data["people_tracks"]),
-            len(self.items["people_tracks"]),
-        ):
-            self.items["people_tracks"][i].hide()
+        for key in ["people", "tsds"]:
+            self._update_rects(data, key)
