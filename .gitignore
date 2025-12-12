@@ -210,3 +210,4 @@ materials/in
 materials/out
 runs
 GUI/user_files
+*.onnx
