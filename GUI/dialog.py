@@ -69,4 +69,4 @@ class Dialog(QDialog):
     def get_answer(self):
         answer = self.exec() == QDialog.DialogCode.Accepted
         check_box_options = [check_box.isChecked() for check_box in self.check_boxes]
-        return answer, check_box_options[1:]
+        return answer, check_box_options

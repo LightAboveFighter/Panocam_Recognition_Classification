@@ -558,4 +558,4 @@ class EditConfigWidget(QWidget):
         with open(saved_options_path, "w") as file:
             yaml.safe_dump(options, file)
 
-        self.processing.emit(show, options)
+        self.processing.emit(show, options[1:])
