@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'edit_config_class.ui'
+# Form implementation generated from reading ui file './edit_config_class.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -16,9 +16,7 @@ class Ui_Form(object):
         self.verticalLayout = QtWidgets.QVBoxLayout(Form)
         self.verticalLayout.setObjectName("verticalLayout")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
-        self.verticalLayout_2.setSizeConstraint(
-            QtWidgets.QLayout.SizeConstraint.SetMaximumSize
-        )
+        self.verticalLayout_2.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMaximumSize)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -31,6 +29,9 @@ class Ui_Form(object):
         self.button_add_border = QtWidgets.QPushButton(parent=Form)
         self.button_add_border.setObjectName("button_add_border")
         self.horizontalLayout_2.addWidget(self.button_add_border)
+        self.button_connect_exit = QtWidgets.QPushButton(parent=Form)
+        self.button_connect_exit.setObjectName("button_connect_exit")
+        self.horizontalLayout_2.addWidget(self.button_connect_exit)
         self.button_add_detect_window = QtWidgets.QPushButton(parent=Form)
         self.button_add_detect_window.setObjectName("button_add_detect_window")
         self.horizontalLayout_2.addWidget(self.button_add_detect_window)
@@ -71,6 +72,7 @@ class Ui_Form(object):
         self.button_load_config.setText(_translate("Form", "Load config"))
         self.button_save_config.setText(_translate("Form", "Save config"))
         self.button_add_border.setText(_translate("Form", "Add Border"))
+        self.button_connect_exit.setText(_translate("Form", "Connect exit"))
         self.button_add_detect_window.setText(_translate("Form", "Add exit indicator"))
         self.button_process.setText(_translate("Form", "Process"))
         self.action_save_config.setText(_translate("Form", "Save config"))
@@ -81,7 +83,6 @@ class Ui_Form(object):
 
 if __name__ == "__main__":
     import sys
-
     app = QtWidgets.QApplication(sys.argv)
     Form = QtWidgets.QWidget()
     ui = Ui_Form()

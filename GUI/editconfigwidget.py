@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
 from enum import Enum
 import yaml
 from random_qt_color import get_rand_brush_color
-from graphic_items import NgonItem
+from graphic_items import NgonItem, ClickableLineItem
 from AI_options import AI_options
 
 from video_processing_thread import VideoProcessingThread
@@ -54,24 +54,28 @@ class DrawableGraphicsScene(QGraphicsScene):
     )  # x1, y1, x2, y2, x3, y3, x4, y4
     drawing_interrupted = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, bond_method, parent=None):
         super().__init__(parent)
         self.current_tool = ToolType.NoDrawing
         self.start_point = QPointF()
         self.current_item = None
         self.touched = 0
         self.second_point = (0, 0)
+        self.curr_id = 0
+        self.bond_method = bond_method
 
     def set_color(self):
         self.brush, self.pen = get_rand_brush_color(alpha=100)
 
-    def set_current_tool(self, tool: ToolType):
+    def set_current_tool(self, tool: ToolType, id):
         self.current_tool = tool
+        self.curr_id = id
 
     def draw_objects(self, data: list[AbstractTrackObject]):
         for track_object in data:
             dict_data = track_object.get_dict()
             obj_type = dict_data.get("type", "notype")
+            id = dict_data["room_id"]
 
             x1, y1 = dict_data["point1"]
             x2, y2 = dict_data["point2"]
@@ -79,22 +83,25 @@ class DrawableGraphicsScene(QGraphicsScene):
             drawing = None
             self.set_color()
             if obj_type == "border":
-                drawing = QGraphicsLineItem(x1, y1, x2, y2)
+                drawing = ClickableLineItem(id, x1, y1, x2, y2)
             elif obj_type == "detect_window":
                 x3, y3 = dict_data["point3"]
                 x4, y4 = dict_data["point4"]
-                drawing = NgonItem(4, x1, y1, x2, y2, x3, y3, x4, y4)
+                drawing = NgonItem(id, 4, x1, y1, x2, y2, x3, y3, x4, y4)
                 drawing.setBrush(self.brush)
             else:
                 return
             if not drawing is None:
                 drawing.setPen(self.pen)
+                drawing.clicked.connect(self.bond_method)
                 self.addItem(drawing)
 
     def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+
         if event.button() == Qt.MouseButton.LeftButton:
             if self.current_tool == ToolType.NoDrawing:
-                return super().mouseReleaseEvent(event)
+                return super().mousePressEvent(event)
 
             self.touched += 1
             self.start_point = event.scenePos()
@@ -102,30 +109,41 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             if self.current_tool == ToolType.Border:
                 self.set_color()
-                self.current_item = QGraphicsLineItem()
-                self.current_item.setLine(
-                    self.start_point.x(),
-                    self.start_point.y(),
-                    self.start_point.x(),
-                    self.start_point.y(),
-                )
-                self.current_item.setPen(self.pen)
-                self.addItem(self.current_item)
+
+                if not self.current_item:
+                    self.current_item = ClickableLineItem(
+                        self.curr_id,
+                        self.start_point.x(),
+                        self.start_point.y(),
+                        self.start_point.x(),
+                        self.start_point.y(),
+                    )
+                    self.current_item.setPen(self.pen)
+                    self.addItem(self.current_item)
+                    self.current_item.clicked.connect(self.bond_method)
+                else:
+                    self.current_item.setLine(
+                        self.start_point.x(),
+                        self.start_point.y(),
+                        self.start_point.x(),
+                        self.start_point.y(),
+                    )
+
             elif self.current_tool == ToolType.DetectWindow:
                 if not self.current_item:
                     self.set_color()
                     self.current_item = NgonItem(
-                        4, *[self.start_point for _ in range(4)]
+                        self.curr_id, 4, *[self.start_point for _ in range(4)]
                     )
                     self.current_item.setPen(self.pen)
                     self.current_item.setBrush(self.brush)
                     self.addItem(self.current_item)
+                    self.current_item.clicked.connect(self.bond_method)
                 else:
+                    points = self.current_item.points
+                    points[self.touched - 1] = self.start_point
                     self.current_item.setPoints(
-                        *[
-                            *self.current_item.points[: self.touched - 1],
-                            *[self.start_point for _ in range(5 - self.touched)],
-                        ],
+                        *points,
                     )
 
         elif event.button() == Qt.MouseButton.RightButton:
@@ -144,18 +162,15 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.current_tool = ToolType.NoDrawing
                     self.drawing_interrupted.emit()
                 elif self.current_item:
+                    points = self.current_item.points
+                    points[self.touched] = points[0]
                     self.current_item.setPoints(
-                        *[
-                            *self.current_item.points[: self.touched],
-                            *[self.start_point for _ in range(4 - self.touched)],
-                        ],
+                        *points,
                     )
-
-        return super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         if self.touched == 0:
-            return super().mousePressEvent(event)
+            return super().mouseReleaseEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             if self.current_tool != ToolType.NoDrawing:
                 if self.current_tool == ToolType.Border:
@@ -184,10 +199,7 @@ class DrawableGraphicsScene(QGraphicsScene):
 
             if self.current_tool == ToolType.DetectWindow:
                 self.current_item.setPoints(
-                    *[
-                        *self.current_item.points[: self.touched],
-                        *[current_point for _ in range(4 - self.touched)],
-                    ],
+                    *[*self.current_item.points[:3], current_point],
                 )
             elif self.current_tool == ToolType.Border:
                 self.current_item.setLine(
@@ -214,7 +226,7 @@ class EditConfigWidget(QWidget):
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
-        self.scene = DrawableGraphicsScene()
+        self.scene = DrawableGraphicsScene(self.add_exit_connection)
 
         self.scene.border_completed.connect(self.get_border)
         self.scene.detect_window_completed.connect(self.get_detect_window)
@@ -226,6 +238,7 @@ class EditConfigWidget(QWidget):
         self.ui.button_load_config.clicked.connect(self.load_config)
         self.ui.action_open_config.triggered.connect(self.load_config)
         self.ui.button_process.clicked.connect(self.process)
+        self.ui.button_connect_exit.clicked.connect(self.start_connect_exit)
 
         self.ui.frame_viewer.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -266,6 +279,7 @@ class EditConfigWidget(QWidget):
         self.path = None
         self.curr_id = 0
         self.curr_scale = 1.0
+        self.exit_connection = []
 
     def set_path(self, path: str) -> bool:
         """change frame, delete all previous data"""
@@ -298,7 +312,8 @@ class EditConfigWidget(QWidget):
             )
         )
         self.scene.clear()
-        self.scene.addPixmap(self.current_frame)
+        pixmap = self.scene.addPixmap(self.current_frame)
+        pixmap.setZValue(-2)
         self.scene.setSceneRect(
             0,
             0,
@@ -374,13 +389,15 @@ class EditConfigWidget(QWidget):
         return self.scene.width() / self.current_frame.width()
 
     def draw_border(self):
-        self.scene.set_current_tool(ToolType.Border)
+        self.scene.set_current_tool(ToolType.Border, self.curr_id)
         self.set_drag(False)
+        self.curr_id += 1
 
     def draw_spectator(self):
-        self.scene.set_current_tool(ToolType.DetectWindow)
+        self.scene.set_current_tool(ToolType.DetectWindow, self.curr_id)
         self.set_drag(False)
         self.ui.frame_viewer.setMouseTracking(True)
+        self.curr_id += 1
 
     def stop_drawing(self):
         self.set_drag(True)
@@ -398,7 +415,6 @@ class EditConfigWidget(QWidget):
         self.data.append(Border(self.curr_id, 20, pack[0], pack[1]))
 
         self.set_drag(True)
-        self.curr_id += 1
 
     def get_detect_window(
         self,
@@ -421,7 +437,33 @@ class EditConfigWidget(QWidget):
         self.data.append(DetectWindow(self.curr_id, *pack))
 
         self.stop_drawing()
-        self.curr_id += 1
+
+    def start_connect_exit(self):
+        for item in self.scene.items():
+            if isinstance(item, NgonItem):
+                item.setEnabled(True)
+
+    def add_exit_connection(self, id: int):
+
+        self.exit_connection.append(id)
+        if len(self.exit_connection) != 2:
+            for item in self.scene.items():
+                if isinstance(item, NgonItem):
+                    item.setEnabled(False)
+                elif isinstance(item, ClickableLineItem):
+                    item.setEnabled(True)
+            return
+
+        for item in self.scene.items():
+            item.setEnabled(False)
+            if hasattr(item, "set_orig_color"):
+                item.set_orig_color()
+
+        for obj in self.data:
+            if obj.room_id == self.exit_connection[0]:
+                obj.room_id = self.exit_connection[1]
+                break
+        self.exit_connection = []
 
     def set_drag(self, is_active: bool):
         if is_active:
@@ -462,7 +504,7 @@ class EditConfigWidget(QWidget):
                 continue
 
             approved.append(obj)
-            self.curr_id = max(self.curr_id, obj["room_id"])
+            self.curr_id = max(self.curr_id, obj["room_id"]) + 1
 
         for dict_info in approved:
             self.data.append(get_track_object_from_dict(dict_info))

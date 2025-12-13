@@ -291,7 +291,7 @@ class DetectWindow(AbstractTrackObject):
         for x, y in self.xy_s:
             data.append(x)
             data.append(y)
-        return NgonItem(4, *data)
+        return NgonItem(self.room_id, 4, *data)
 
     def draw(self, im: np.ndarray):
 

@@ -43,6 +43,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="button_connect_exit">
+         <property name="text">
+          <string>Connect exit</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="button_add_detect_window">
          <property name="text">
           <string>Add exit indicator</string>
