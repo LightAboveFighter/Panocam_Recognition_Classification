@@ -1,40 +1,82 @@
 from PyQt6.QtWidgets import (
-    QGraphicsRectItem,
-    QGraphicsEllipseItem,
     QGraphicsItem,
 )
 import math
 from PyQt6.QtCore import QRectF, QPointF, Qt, pyqtSignal, QObject, QTimer
-from PyQt6.QtGui import QPainterPath, QBrush, QPen, QColor, QPainterPathStroker, QCursor
+from PyQt6.QtGui import QPainterPath, QBrush, QPen, QColor, QPainterPathStroker
+from abc import abstractmethod
 
 
-class _ClickableLineItemSignals(QObject):
+class _AbstractActivatedIdGraphicsItemSignals(QObject):
     clicked = pyqtSignal(int)  # id
 
 
-class ClickableLineItem(QGraphicsItem):
+class AbstractActivatedIdGraphicsItem(QGraphicsItem):
+
+    id: int
+
+    def __init__(self, id: int, parent=None):
+        super().__init__(parent=parent)
+        self.id = id
+        self.signals = _AbstractActivatedIdGraphicsItemSignals()
+        self.clicked = self.signals.clicked
+        self.blockSignals = self.signals.blockSignals
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
+        self.setEnabled(True)
+        self.setInteractionsActive(False)
+
+    @abstractmethod
+    def setBrush(self, brush):
+        pass
+
+    @abstractmethod
+    def setPen(self, pen):
+        pass
+
+    def brush(self):
+        return self._brush
+
+    def pen(self):
+        return self._pen
+
+    @abstractmethod
+    def boundingRect(self):
+        return super().boundingRect()
+
+    @abstractmethod
+    def shape(self):
+        pass
+
+    @abstractmethod
+    def paint(self, painter, option, widget=...):
+        return super().paint(painter, option, widget)
+
+    @abstractmethod
+    def set_orig_color(self):
+        pass
+
+    def setInteractionsActive(self, enabled: bool):
+        self.setAcceptHoverEvents(enabled)
+        self.setAcceptedMouseButtons(
+            Qt.MouseButton.LeftButton if enabled else Qt.MouseButton.NoButton
+        )
+
+
+class ClickableLineItem(AbstractActivatedIdGraphicsItem):
 
     def __init__(
         self, id: int, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0, parent=None
     ):
         self.iteraction_thickness = 30
-        super().__init__(parent=parent)
+        super().__init__(id=id, parent=parent)
         self.p1 = (x1, y1)
         self.p2 = (x2, y2)
-        self.id = id
-        self.setPen(QPen(QColor(255, 140, 0), 2))
+        self.orig_color = QColor(255, 140, 0)
+        self.setPen(QPen(self.orig_color, 2))
         self.setBrush(QBrush(QColor(255, 165, 0, 128)))
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
-        self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
-        self.setAcceptHoverEvents(True)
-        self.setEnabled(False)
-        self.setZValue(self.zValue() + 1)
-        self._mouse_captured = False
-        self._is_hovered = False
-        self.signals = _ClickableLineItemSignals()
-        self.clicked = self.signals.clicked
 
     def setLine(self, x1: int, y1: int, x2: int, y2: int):
         self.p1 = (x1, y1)
@@ -51,12 +93,6 @@ class ClickableLineItem(QGraphicsItem):
         self._pen = pen
         self.orig_color = pen.color()
         self.update(self.boundingRect())
-
-    def brush(self):
-        return self._brush
-
-    def pen(self):
-        return self._pen
 
     def boundingRect(self):
         min_x, max_x = sorted([self.p1[0], self.p2[0]])
@@ -83,13 +119,6 @@ class ClickableLineItem(QGraphicsItem):
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         return stroker.createStroke(path)
 
-    def setEnabled(self, enabled):
-        if enabled:
-            self.setZValue(self.zValue() + 1)
-        else:
-            self.setZValue(self.zValue() - 1)
-        return super().setEnabled(enabled)
-
     def paint(self, painter, option, widget=None):
         path = QPainterPath()
         path.moveTo(QPointF(*self.p1))
@@ -107,31 +136,25 @@ class ClickableLineItem(QGraphicsItem):
         self.orig_color = self._pen.color()
         self._pen.setColor(QColor("white"))
         self.update()
-        event.accept()
+        return super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
         self.set_orig_color()
         self.update()
-        event.accept()
+        return super().hoverLeaveEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.id)
-        event.accept()
+            self.blockSignals(True)
+            QTimer.singleShot(1000, lambda: self.blockSignals(False))
+        return super().mousePressEvent(event)
 
 
-class _NgonItemSignals(QObject):
-
-    clicked = pyqtSignal(int)  # id
-
-
-class NgonItem(QGraphicsItem):
+class NgonItem(AbstractActivatedIdGraphicsItem):
 
     def __init__(self, id: int, n_points: int = 4, *points: QPointF | int):
-        super().__init__()
-        self.id = id
-        self._pen = None
-        self._brush = None
+        super().__init__(id)
         self.n = n_points
         if len(points) == self.n * 2:
             self.points = [
@@ -140,18 +163,10 @@ class NgonItem(QGraphicsItem):
         elif len(points) == self.n:
             self.points = points
         self.points = self.get_sorted_points()
-        self.setPen(QPen(QColor(255, 140, 0), 2))
-        self.setBrush(QBrush(QColor(255, 165, 0, 128)))
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable, True)
+        self.orig_color = [QColor(255, 140, 0), QColor(255, 165, 0, 128)]
+        self.setPen(QPen(self.orig_color[0], 2))
+        self.setBrush(QBrush(self.orig_color[1]))
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-        self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
-        self.setAcceptHoverEvents(True)
-        self.signals = _NgonItemSignals()
-        self.clicked = self.signals.clicked
-        self.setEnabled(False)
-        self.setZValue(self.zValue() + 1)
 
     def get_sorted_points(self):
         center_x = sum(p.x() for p in self.points) / 4
@@ -188,25 +203,15 @@ class NgonItem(QGraphicsItem):
 
     def setBrush(self, brush):
         self._brush = brush
+        self.orig_color[1] = brush.color()
         self.update(self.boundingRect())
+        return super().setBrush(brush)
 
     def setPen(self, pen):
         self._pen = pen
-        self.orig_color = pen.color()
+        self.orig_color[0] = pen.color()
         self.update(self.boundingRect())
-
-    def brush(self):
-        return self._brush
-
-    def pen(self):
-        return self._pen
-
-    def setEnabled(self, enabled):
-        if enabled:
-            self.setZValue(self.zValue() + 1)
-        else:
-            self.setZValue(self.zValue() - 1)
-        return super().setEnabled(enabled)
+        return super().setPen(pen)
 
     def boundingRect(self):
         """Возвращает ограничивающий прямоугольник элемента"""
@@ -261,20 +266,23 @@ class NgonItem(QGraphicsItem):
         self._brush.setColor(brush_color)
 
     def hoverEnterEvent(self, event):
-        self.orig_color = (self._pen.color(), self._brush.color())
+        self.orig_color = [self._pen.color(), self._brush.color()]
         self._pen.setColor(self._pen.color().lighter(150))
         self._brush.setColor(self._brush.color().lighter(150))
         self.update()
-        event.accept()
+        return super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
         self.set_orig_color()
         self.update()
-        event.accept()
+        return super().hoverLeaveEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.id)
+            self.blockSignals(True)
+            QTimer.singleShot(1000, lambda: self.blockSignals(False))
+
         return super().mousePressEvent(event)
 
 

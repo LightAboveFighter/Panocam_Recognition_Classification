@@ -51,7 +51,7 @@ class InstrumentManager:
         for j in range(len(data)):
             if data[j].get_type() != "border":
                 continue
-            i = j + 1
+            i = 0
             # объединяем окна и границы с одинаковыми айди
             # мы можем иметь линию без окна, но не наоборот
             window = None
@@ -62,6 +62,8 @@ class InstrumentManager:
                 ):
                     window = data[i]
                 i += 1
+                if i == j:
+                    i += 1
 
             self.objs[data[j].room_id] = (data[j], window)
 

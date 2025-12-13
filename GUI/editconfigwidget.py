@@ -5,10 +5,9 @@ from PyQt6.QtWidgets import (
     QGraphicsScene,
     QWidget,
     QGraphicsView,
-    QGraphicsLineItem,
 )
-from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QBrush
-from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent
+from PyQt6.QtGui import QImage, QPixmap, QPainter
+from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent, QTimer
 from enum import Enum
 import yaml
 from random_qt_color import get_rand_brush_color
@@ -84,10 +83,12 @@ class DrawableGraphicsScene(QGraphicsScene):
             self.set_color()
             if obj_type == "border":
                 drawing = ClickableLineItem(id, x1, y1, x2, y2)
+                drawing.setZValue(3)
             elif obj_type == "detect_window":
                 x3, y3 = dict_data["point3"]
                 x4, y4 = dict_data["point4"]
                 drawing = NgonItem(id, 4, x1, y1, x2, y2, x3, y3, x4, y4)
+                drawing.setZValue(2.5)
                 drawing.setBrush(self.brush)
             else:
                 return
@@ -118,6 +119,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                         self.start_point.x(),
                         self.start_point.y(),
                     )
+                    self.current_item.setZValue(3)
                     self.current_item.setPen(self.pen)
                     self.addItem(self.current_item)
                     self.current_item.clicked.connect(self.bond_method)
@@ -135,6 +137,7 @@ class DrawableGraphicsScene(QGraphicsScene):
                     self.current_item = NgonItem(
                         self.curr_id, 4, *[self.start_point for _ in range(4)]
                     )
+                    self.current_item.setZValue(2.5)
                     self.current_item.setPen(self.pen)
                     self.current_item.setBrush(self.brush)
                     self.addItem(self.current_item)
@@ -280,6 +283,7 @@ class EditConfigWidget(QWidget):
         self.curr_id = 0
         self.curr_scale = 1.0
         self.exit_connection = []
+        self.connection_cooldown = False
 
     def set_path(self, path: str) -> bool:
         """change frame, delete all previous data"""
@@ -441,23 +445,33 @@ class EditConfigWidget(QWidget):
     def start_connect_exit(self):
         for item in self.scene.items():
             if isinstance(item, NgonItem):
-                item.setEnabled(True)
+                item.setInteractionsActive(True)
 
     def add_exit_connection(self, id: int):
 
+        if self.connection_cooldown:
+            return
+        self.connection_cooldown = True
+
+        def disable_cooldown():
+            self.connection_cooldown = False
+
+        QTimer.singleShot(10, disable_cooldown)
         self.exit_connection.append(id)
         if len(self.exit_connection) != 2:
             for item in self.scene.items():
                 if isinstance(item, NgonItem):
-                    item.setEnabled(False)
-                elif isinstance(item, ClickableLineItem):
-                    item.setEnabled(True)
+                    item.setInteractionsActive(False)
+                if isinstance(item, ClickableLineItem):
+                    item.setInteractionsActive(True)
             return
 
         for item in self.scene.items():
-            item.setEnabled(False)
-            if hasattr(item, "set_orig_color"):
+            if isinstance(item, ClickableLineItem):
+                item.setInteractionsActive(False)
+            if hasattr(item, "set_orig_color") and item.id in self.exit_connection:
                 item.set_orig_color()
+                item.update()
 
         for obj in self.data:
             if obj.room_id == self.exit_connection[0]:
