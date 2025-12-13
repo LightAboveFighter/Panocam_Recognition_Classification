@@ -10,7 +10,6 @@ from PyQt6.QtGui import QPixmap, QImage, QPen, QColor, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from video_processing_thread import VideoProcessingThread
 import cv2 as cv
-from random_qt_color import get_rand_brush_color
 from items_manager import ItemsManager
 
 import sys
@@ -199,12 +198,7 @@ class ThreadedViewer(QGraphicsView):
     ):
 
         for track_object in data:
-            item = track_object.get_qt_graphic_item()
-            brush, pen = get_rand_brush_color(alpha=40)
-            if track_object.get_type() == "detect_window":
-                item.setBrush(brush)
-            item.setPen(pen)
-            self.scene.addItem(item)
+            self.items_manager.add_static_item(track_object)
 
         self.video_processor = VideoProcessingThread(
             True,

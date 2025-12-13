@@ -122,3 +122,33 @@ class InstrumentManager:
         im = cv.circle(im, (im.shape[1] - 20, 20), 10, lamp_color, 17)
 
         return im
+
+    def _perspective_correct_quadrilateral(self, frame, points):
+        """
+        Extract quadrilateral region and perform perspective correction to get a straight rectangle
+        """
+        src_pts = np.array(points, dtype=np.float32)
+        width = max(
+            np.linalg.norm(src_pts[0] - src_pts[1]),
+            np.linalg.norm(src_pts[2] - src_pts[3]),
+        )
+        height = max(
+            np.linalg.norm(src_pts[1] - src_pts[2]),
+            np.linalg.norm(src_pts[3] - src_pts[0]),
+        )
+
+        dst_pts = np.array(
+            [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]],
+            dtype=np.float32,
+        )
+        matrix = cv.getPerspectiveTransform(src_pts, dst_pts)
+        result = cv.warpPerspective(frame, matrix, (int(width), int(height)))
+
+        return result
+
+    def get_detect_frames(self, frame):
+
+        for obj in self.objs.values():
+            yield self._perspective_correct_quadrilateral(frame, obj[1].xy_s), obj[
+                1
+            ].room_id

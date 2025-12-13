@@ -7,7 +7,7 @@ from pathlib import Path
 from .track_objects import AbstractTrackObject
 
 base = "materials/trained_models/"
-AI_names = [base + "yolo11n-pose", base + "TSD"]
+AI_names = [base + "yolo11n-pose", base + "TSD", base + "curtains"]
 
 
 class Tracker:
@@ -35,7 +35,10 @@ class Tracker:
                 path = model_name + ".onnx"
                 if Path(model_name + ".engine").exists():
                     path = model_name + ".engine"
-                self.models.append(YOLO(path))
+                if model_name == AI_names[2]:
+                    self.models.append(YOLO(path, task="classify"))
+                else:
+                    self.models.append(YOLO(path))
             else:
                 self.models.append(None)
 
@@ -51,7 +54,7 @@ class Tracker:
         self, model, name, frame_in, frame_out
     ) -> tuple[np.ndarray, list]:
 
-        data = {"people": [], "tsds": []}
+        data = {"people": [], "tsds": [], "curtains": []}
         if name in AI_names[:2]:
             results = model.track(
                 frame_in,
@@ -102,6 +105,13 @@ class Tracker:
                         (255, 0, 0),
                         2,
                     )
+        elif name == AI_names[2]:
+            for region, id in self.manager.get_detect_frames(frame_in):
+                results = model.predict(region, task="classify", verbose=self.verbose)
+                data["curtains"].append(
+                    (results[0].probs.top1, id)
+                )  # {0: 'closed', 1: 'open'}
+
         return frame_out, data
 
     def track_frame(
@@ -109,7 +119,7 @@ class Tracker:
         frame: np.ndarray,
     ):
         frame_out = frame
-        frame_info = {"people": [], "tsds": []}
+        frame_info = {"people": [], "tsds": [], "curtains": []}
         for model, name in zip(self.models, AI_names):
             if model is None:
                 continue

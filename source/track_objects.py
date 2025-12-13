@@ -4,14 +4,17 @@ from collections import deque
 from shapely import LineString
 from enum import Enum
 from abc import ABC, abstractmethod
-from PyQt6.QtWidgets import QGraphicsLineItem, QGraphicsItem
 
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from GUI.graphic_items import NgonItem
+from GUI.graphic_items import (
+    NgonItem,
+    ClickableLineItem,
+    AbstractActivatedIdGraphicsItem,
+)
 
 
 def get_track_object_from_dict(data: dict):
@@ -38,7 +41,7 @@ class AbstractTrackObject(ABC):
         pass
 
     @abstractmethod
-    def get_qt_graphic_item(self) -> QGraphicsItem:
+    def get_qt_graphic_item(self) -> AbstractActivatedIdGraphicsItem:
         pass
 
     @abstractmethod
@@ -179,7 +182,7 @@ class Border(AbstractTrackObject):
         return (self.room_id, self.incident_level)
 
     def get_qt_graphic_item(self):
-        return QGraphicsLineItem(*self.p1, *self.p2, parent=None)
+        return ClickableLineItem(self.room_id, *self.p1, *self.p2, parent=None)
 
     def draw(self, im) -> np.ndarray:
         if self.intersected:
