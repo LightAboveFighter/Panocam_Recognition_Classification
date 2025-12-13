@@ -7,7 +7,7 @@ from pathlib import Path
 from .track_objects import AbstractTrackObject
 
 base = "materials/trained_models/"
-AI_names = [base + "yolo11n-pose", base + "TSD", base + "curtains"]
+AI_names = [base + "yolo11n-pose", base + "TSD", base + "curtains", base + "bills"]
 
 
 class Tracker:
@@ -54,15 +54,12 @@ class Tracker:
         self, model, name, frame_in, frame_out
     ) -> tuple[np.ndarray, list]:
 
-        data = {"people": [], "tsds": [], "curtains": []}
-        if name in AI_names[:2]:
-            results = model.track(
-                frame_in,
-                show=False,
-                persist=True,
-                tracker=self.tracker_name,
-                verbose=self.verbose,
-            )
+        data = {"people": [], "tsds": [], "curtains": [], "bills": []}
+        if name in [*AI_names[:2], AI_names[3]]:
+            args = {"show": False, "persist": True, "tracker": self.tracker_name}
+            if name == AI_names[3]:
+                args["conf"] = 0.001
+            results = model.track(frame_in, verbose=self.verbose, **args)
 
             for result in results:
                 people_count = 0
@@ -87,6 +84,8 @@ class Tracker:
                             data["people"].append([[x1, y1], [x2, y2]])
                         if name == AI_names[1]:
                             data["tsds"].append([[x1, y1], [x2, y2]])
+                        if name == AI_names[3]:
+                            data["bills"].append([[x1, y1], [x2, y2]])
 
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
 
@@ -119,7 +118,7 @@ class Tracker:
         frame: np.ndarray,
     ):
         frame_out = frame
-        frame_info = {"people": [], "tsds": [], "curtains": []}
+        frame_info = {"people": [], "tsds": [], "curtains": [], "bills": []}
         for model, name in zip(self.models, AI_names):
             if model is None:
                 continue

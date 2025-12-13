@@ -22,7 +22,7 @@ class ItemsManager:
             "filled_red": QPen(QColor(255, 0, 0, 0)),
         }
         self.brushes = {"filled_red_circle": QBrush(QColor(255, 0, 0, 0))}
-        self.items = {"people": [], "tsds": [], "curtains": []}
+        self.items = {"people": [], "tsds": [], "curtains": [], "bills": []}
         self.static_items = {}
         self.scene = scene
 
@@ -76,7 +76,7 @@ class ItemsManager:
 
     def update(self, data: dict):
 
-        for key in ["people", "tsds"]:
+        for key in ["people", "tsds", "bills"]:
             self._update_rects(data, key)
         detect_windows_colours = {}
         for val, id in data["curtains"]:
