@@ -211,3 +211,7 @@ materials/out
 runs
 GUI/user_files
 *.onnx
+*.engine
+*.xml
+ready_data
+phones
