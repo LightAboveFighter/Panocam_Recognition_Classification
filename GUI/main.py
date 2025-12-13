@@ -311,20 +311,37 @@ class ExportModelsThread(QThread):
                 failed = False
                 try:
                     step_model.export(
-                        format="engine", dynamic=True, simplify=True, opset=17
+                        format="engine",
+                        half=False,
+                        imt8=False,
+                        dynamic=True,
+                        simplify=True,
+                        opset=17,
                     )
                 except Exception as err:
                     print(err)
                     failed = True
                 if failed:
                     step_model.export(
-                        format="onnx", dynamic=True, simplify=True, opset=17
+                        format="onnx",
+                        fp16_mode=False,
+                        int8_mode=False,
+                        dynamic=True,
+                        simplify=True,
+                        opset=17,
                     )
             return
         for model_name in AI_names:
             if not Path(model_name + ".onnx").exists():
                 step_model = YOLO(model_name + ".pt")
-                step_model.export(format="onnx", dynamic=True, simplify=True, opset=17)
+                step_model.export(
+                    format="onnx",
+                    fp16_mode=False,
+                    int8_mode=False,
+                    dynamic=True,
+                    simplify=True,
+                    opset=17,
+                )
 
 
 class StartPage(QMainWindow):
