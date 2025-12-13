@@ -118,13 +118,20 @@ class Tracker:
         frame: np.ndarray,
     ):
         frame_out = frame
-        frame_info = {"people": [], "tsds": [], "curtains": [], "bills": []}
+        frame_info = {
+            "people": [],
+            "tsds": [],
+            "curtains": [],
+            "bills": [],
+        }
         for model, name in zip(self.models, AI_names):
             if model is None:
                 continue
             frame_out, data = self.get_model_result(model, name, frame, frame_out)
             for key in frame_info.keys():
                 frame_info[key].extend(data[key])
+
+        frame_info["border_counts"] = self.manager.get_border_counts()
 
         if not self.video_out is None:
             self.video_out.write(frame_out)

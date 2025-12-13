@@ -146,9 +146,14 @@ class InstrumentManager:
 
         return result
 
+    def get_border_counts(self):
+        return [(obj[0].room_id, obj[0].contain) for obj in self.objs.values()]
+
     def get_detect_frames(self, frame):
 
         for obj in self.objs.values():
+            if obj[1] is None:
+                continue
             yield self._perspective_correct_quadrilateral(frame, obj[1].xy_s), obj[
                 1
             ].room_id
