@@ -73,9 +73,6 @@ class ItemsManager:
         item = track_object.get_qt_graphic_item()
         id = track_object.room_id
         item_type = 0
-        if id not in self.static_items.keys():
-            self.static_items[id] = [None, None, None]
-        self.static_items[id][item_type] = item
 
         if track_object.get_type() == "detect_window":
             item.setBrush(brush)
@@ -105,6 +102,9 @@ class ItemsManager:
             self.static_items[id][2] = count_item
             self.scene.addItem(count_item)
         item.setPen(pen)
+        if id not in self.static_items.keys():
+            self.static_items[id] = [None, None, None]
+        self.static_items[id][item_type] = item
 
         self.scene.addItem(item)
 
