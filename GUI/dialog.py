@@ -1,5 +1,8 @@
 from PyQt6.QtWidgets import QDialog, QCheckBox
 from dialog_default import Ui_Dialog
+import yaml
+from file_methods import rec_create_file
+from options_lists import AI_options, additional_options
 
 
 class Dialog(QDialog):
@@ -19,15 +22,48 @@ class Dialog(QDialog):
         self.ungrouped_check_boxes = []
         self.row = 0
         self.column = 0
+        self.options_path = "GUI/user_files/last_checkbox_options.yaml"
+        self.sum_check_box_exists = False
 
-    def set_check_box_states(self, states: list[bool]):
-        for check_box, state in zip(
-            self.check_boxes,
-            [*states, *([False] * (len(self.check_boxes) - len(states)))],
+    def set_saved_check_boxes(self, add_sum_check_box: bool = True):
+        self.add_check_box_variants(AI_options, add_sum_check_box)
+        self.add_ungrouped_check_box_variants(additional_options)
+
+        rec_create_file(self.options_path)
+        with open(self.options_path, "r") as file:
+            saved_options = yaml.safe_load(file)
+            if not saved_options is None:
+                self.set_grouped_check_box_states(saved_options[: len(AI_options)])
+                self.set_ungrouped_check_box_states(saved_options[len(AI_options) :])
+
+    def save_check_box_options(self, options: list[bool]):
+        with open(self.options_path, "w") as file:
+            yaml.safe_dump(options[1:], file)
+
+    def set_grouped_check_box_states(self, states: list[bool]):
+        if self.sum_check_box_exists:
+            self.check_boxes[0].setChecked(all(states))
+            start_index = 1
+        else:
+            start_index = 0
+        for i, (check_box, state) in enumerate(
+            zip(
+                self.check_boxes[start_index:],
+                [*states, *([False] * (len(self.check_boxes) - len(states)))],
+            )
         ):
             check_box.setChecked(state)
 
-    def mark_all(self):
+    def set_ungrouped_check_box_states(self, states: list[bool]):
+        for i, (check_box, state) in enumerate(
+            zip(
+                self.ungrouped_check_boxes,
+                [*states, *([False] * (len(self.ungrouped_check_boxes) - len(states)))],
+            )
+        ):
+            check_box.setChecked(state)
+
+    def mark_all_grouped(self):
         state = self.check_boxes[0].isChecked()
         for check_box in self.check_boxes:
             check_box.blockSignals(True)
@@ -46,10 +82,12 @@ class Dialog(QDialog):
     def add_check_box_variants(
         self, var_list: list[str], add_sum_check_box: bool = False
     ):
-        if len(var_list) > 0 and add_sum_check_box:
+
+        if len(var_list) > 0 and add_sum_check_box and (not self.sum_check_box_exists):
+            self.sum_check_box_exists = True
             check_box = QCheckBox("Выбрать все", self)
-            check_box.stateChanged.connect(self.mark_all)
-            self.check_boxes.append(check_box)
+            check_box.stateChanged.connect(self.mark_all_grouped)
+            self.check_boxes.insert(0, check_box)
             self.ui.optional_grid.addWidget(check_box, self.row, self.column)
 
             self.column += 1
@@ -81,5 +119,7 @@ class Dialog(QDialog):
     def get_answer(self):
         success = self.exec() == QDialog.DialogCode.Accepted
         check_box_options = [check_box.isChecked() for check_box in self.check_boxes]
-        ungrouped_options = [check_box.isChecked() for check_box in self.ungrouped_check_boxes]
+        ungrouped_options = [
+            check_box.isChecked() for check_box in self.ungrouped_check_boxes
+        ]
         return success, check_box_options, ungrouped_options

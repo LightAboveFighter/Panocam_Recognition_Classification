@@ -87,7 +87,7 @@ class Tracker:
                     for i, box in enumerate(boxes):
 
                         people_count += 1
-                        x1, y1, x2, y2 = box.astype(int)
+                        x1, y1, x2, y2 = list(map(int, box.astype(int)))
 
                         if name == AI_names[0]:
                             data["people"].append([[x1, y1], [x2, y2]])
