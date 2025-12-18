@@ -121,7 +121,7 @@ class ItemsManager:
                 margin = 30
             else:
                 margin = -30
-            count_item.setValidPos(p1, p2, margin, -40)
+            count_item.setValidPos(p1, p2, margin, -40, self.scene)
 
             self.static_items[id][2] = count_item
             self.scene.addItem(count_item)
