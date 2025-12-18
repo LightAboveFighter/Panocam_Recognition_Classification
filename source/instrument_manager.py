@@ -23,7 +23,7 @@ class InstrumentManager:
         """
         Args:
             config_path (str): from where lines will be loaded. You also can load data lated with load_data() method
-            incidents_path (str): file where logged incidents will be saved
+            incidents_path (str): file where logged incidents will be saved. If None: won't be saved
             video_name (str): video's name, that will be used in logs
         """
 
