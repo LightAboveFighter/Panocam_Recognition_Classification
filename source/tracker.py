@@ -46,6 +46,8 @@ class Tracker:
                     self.models.append(YOLO(path, task="classify"))
                 else:
                     self.models.append(YOLO(path))
+            elif model_name == AI_names[2]:
+                self.models.append("curtains")
             else:
                 self.models.append(None)
 
@@ -56,7 +58,11 @@ class Tracker:
             incidents_path = "materials/out/Incident.txt"
         else:
             incidents_path = None
-        self.manager = InstrumentManager(incidents_path=incidents_path, video_name="1")
+        self.manager = InstrumentManager(
+            incidents_path=incidents_path,
+            video_name="1",
+            initialize_curtains_model=options[2],
+        )
         self.manager.load_data(data)
 
     def get_model_result(
@@ -72,6 +78,8 @@ class Tracker:
 
             for result in results:
                 people_count = 0
+                if name == AI_names[0]:
+                    point_update_pack = []
                 if result.boxes is not None and len(result.boxes) > 0:
                     boxes = result.boxes.xyxy.cpu().numpy()
                     ids = (
@@ -80,7 +88,6 @@ class Tracker:
                         else None
                     )
 
-                    point_update_pack = []
                     if boxes is None:
                         continue
 
@@ -98,11 +105,13 @@ class Tracker:
 
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
 
-                        if ids is not None:
+                        if ids is not None and name == AI_names[0]:
                             point_update_pack.append((int(ids[i]), center))
-                    self.manager.update(frame_out, point_update_pack)
 
-                frame_out = self.manager.draw(frame_out)
+                if name == AI_names[0]:
+                    frame_out = self.manager.update_draw_incidents_lamp(
+                        frame_out, point_update_pack
+                    )
                 if name == AI_names[0]:
                     frame_out = cv.putText(
                         frame_out,
@@ -114,11 +123,9 @@ class Tracker:
                         2,
                     )
         elif name == AI_names[2]:
-            for region, id in self.manager.get_detect_frames(frame_in):
-                results = model.predict(region, task="classify", verbose=self.verbose)
-                data["curtains"].append(
-                    (results[0].probs.top1, id)
-                )  # {0: 'closed', 1: 'open'}
+            data["curtains"].extend(
+                self.manager.get_detect_windows_states() # (state, id)
+            )  # state: {0: 'closed', 1: 'open'}
         elif name == AI_names[4]:
             results = model.predict(frame_in, verbose=self.verbose)
             for result in results:

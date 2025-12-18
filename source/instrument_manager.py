@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime
 import cv2 as cv
 from pathlib import Path
+from ultralytics import YOLO
 
 
 class InstrumentManager:
@@ -19,6 +20,7 @@ class InstrumentManager:
         config_path: str = None,
         incidents_path: str = None,
         video_name: str = None,
+        initialize_curtains_model: bool = False,
     ):
         """
         Args:
@@ -39,12 +41,20 @@ class InstrumentManager:
             self.incidents_file = None
 
         self.objs = {}
+        self.curtains_model = None
+        if initialize_curtains_model:
+            path = "materials/trained_models/curtains"
+            if Path(path + ".engine").exists():
+                path = path + ".engine"
+            else:
+                path = path + ".onnx"
+            self.curtains_model = YOLO(path, task="classify")
+
         if config_path is None:
             return
 
         with open(config_path, "r") as file:
             data = yaml.safe_load(file)
-
         self.load_data(data)
 
     def load_data(self, data: list[AbstractTrackObject]):
@@ -75,7 +85,9 @@ class InstrumentManager:
             obj[0].update(ids_points)
             if obj[1] is None:
                 continue
-            obj[1].update(im)
+        if not self.curtains_model is None:
+            for region, id in self.get_detect_frames(im):
+                self.objs[id][1].update(self.curtains_model, region)
 
     def write_incidents(self):
 
@@ -104,16 +116,19 @@ class InstrumentManager:
 
         return frame_out
 
-    def update_draw_incidents_lamp(self, im: np.ndarray) -> np.ndarray:
+    def update_draw_incidents_lamp(
+        self, im: np.ndarray, ids_points: list[tuple[int, tuple[float]]]
+    ) -> np.ndarray:
 
         incident_level = IncidentLevel.NO_INCIDENT
+        self._update(im, ids_points)
         for obj in self.objs.values():
             incident_level = IncidentLevel(
                 max(incident_level.value, obj[0].incident_level[1].value)
             )
             if obj[1] is None:
                 continue
-            if obj[1].is_closed > 0.7 and obj[0].contain == 0:
+            if obj[1].is_closed and obj[0].contain == 0:
                 incident_level = IncidentLevel.CLOSED_EMPTY
                 break
         if not self.incidents_file is None:
@@ -131,7 +146,7 @@ class InstrumentManager:
 
         return im
 
-    def _perspective_correct_quadrilateral(self, frame, points):
+    def _perspective_correct_quadrilateral(self, frame: np.ndarray, points: list[int]):
         """
         Extract quadrilateral region and perform perspective correction to get a straight rectangle
         """
@@ -165,3 +180,6 @@ class InstrumentManager:
             yield self._perspective_correct_quadrilateral(frame, obj[1].xy_s), obj[
                 1
             ].room_id
+
+    def get_detect_windows_states(self) -> list[tuple[bool, int]]:
+        return [(not obj[1].is_closed, obj[1].room_id) for obj in self.objs.values()]

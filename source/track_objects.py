@@ -223,6 +223,7 @@ class Border(AbstractTrackObject):
 
 
 class DetectWindow(AbstractTrackObject):
+    is_closed: bool
 
     def __init__(
         self,
@@ -241,7 +242,7 @@ class DetectWindow(AbstractTrackObject):
             list(map(int, point3))[:2],
             list(map(int, point4))[:2],
         )
-        self.is_closed = 0
+        self.is_closed = False
 
     def get_type(self):
         return "detect_window"
@@ -254,40 +255,11 @@ class DetectWindow(AbstractTrackObject):
             "room_id": self.room_id,
         }
 
-    def update(self, im: np.ndarray):
+    def update(self, model, region: np.ndarray):
+        results = model.predict(region, task="classify", verbose=False)
+        self.is_closed = not bool(results[0].probs.top1)
 
-        return im
-        # x1, y1, x2, y2 = (
-        #     self.xy_s[0][0],
-        #     self.xy_s[0][1],
-        #     self.xy_s[1][0],
-        #     self.xy_s[1][1],
-        # )
-        # roi = im[y1:y2, x1:x2]
-
-        # if roi.size == 0:
-        #     return
-
-        # histSize = [8, 8, 8]  # Количество бинов для каждого канала
-        # ranges = [0, 256, 0, 256, 0, 256]  # Диапазон значений для каждого канала
-        # h_in = cv.calcHist([roi], [0, 1, 2], None, histSize, ranges)
-        # h_ref = cv.calcHist([self.closed_ref], [0, 1, 2], None, histSize, ranges)
-
-        # h_in = cv.normalize(h_in, h_in)
-        # h_ref = cv.normalize(h_ref, h_ref)
-
-        # self.is_closed = round(cv.compareHist(h_in, h_ref, cv.HISTCMP_BHATTACHARYYA), 3)
-
-        # self.is_closed = np.sum(
-        #     cv.matchTemplate(
-        #         im[
-        #             self.xyxy[0][1] : self.xyxy[1][1], self.xyxy[0][0] : self.xyxy[1][0]
-        #         ],
-        #         self.closed_ref,
-        #         cv.TM_SQDIFF_NORMED,
-        #     )
-        # ) / (self.closed_ref.shape[0] * self.closed_ref.shape[1] * 255)
-        # print(self.is_closed)
+        return region
 
     def get_qt_graphic_item(self):
         data = []
@@ -303,14 +275,7 @@ class DetectWindow(AbstractTrackObject):
         else:
             box_color = (0, 255, 73)  # green
 
-        im = cv.rectangle(im, self.xy_s[0], self.xy_s[1], box_color, 2)
-        im = cv.putText(
-            im,
-            str(self.is_closed),
-            self.xy_s[1],
-            cv.FONT_HERSHEY_COMPLEX,
-            2,
-            box_color,
-            2,
+        im = cv.polylines(
+            im, [np.array(self.xy_s).reshape((-1, 1, 2))], True, box_color, 2
         )
         return im
