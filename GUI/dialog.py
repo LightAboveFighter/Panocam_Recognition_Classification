@@ -16,6 +16,9 @@ class Dialog(QDialog):
         self.ui.button_box.accepted.connect(self.accept)
         self.ui.button_box.rejected.connect(self.reject)
         self.check_boxes = []
+        self.ungrouped_check_boxes = []
+        self.row = 0
+        self.column = 0
 
     def set_check_box_states(self, states: list[bool]):
         for check_box, state in zip(
@@ -40,33 +43,43 @@ class Dialog(QDialog):
         self.check_boxes[0].setChecked(state)
         self.check_boxes[0].blockSignals(False)
 
-    def set_check_box_variants(
+    def add_check_box_variants(
         self, var_list: list[str], add_sum_check_box: bool = False
     ):
-
-        row = 0
-        column = 0
-
         if len(var_list) > 0 and add_sum_check_box:
             check_box = QCheckBox("Выбрать все", self)
             check_box.stateChanged.connect(self.mark_all)
             self.check_boxes.append(check_box)
-            self.ui.optional_grid.addWidget(check_box, row, column)
+            self.ui.optional_grid.addWidget(check_box, self.row, self.column)
 
-            column += 1
+            self.column += 1
 
         for var in var_list:
             check_box = QCheckBox(var, self)
             check_box.stateChanged.connect(self.update_mark_all_check_box)
             self.check_boxes.append(check_box)
-            self.ui.optional_grid.addWidget(check_box, row, column)
+            self.ui.optional_grid.addWidget(check_box, self.row, self.column)
 
-            column += 1
-            column %= 3
-            if column == 0:
-                row += 1
+            self.column += 1
+            self.column %= 3
+            if self.column == 0:
+                self.row += 1
+
+    def add_ungrouped_check_box_variants(self, var_list: list[str]):
+        """add check boxes, not connected with "choose all" check box"""
+
+        for var in var_list:
+            check_box = QCheckBox(var, self)
+            self.ungrouped_check_boxes.append(check_box)
+            self.ui.optional_grid.addWidget(check_box, self.row, self.column)
+
+            self.column += 1
+            self.column %= 3
+            if self.column == 0:
+                self.row += 1
 
     def get_answer(self):
-        answer = self.exec() == QDialog.DialogCode.Accepted
+        success = self.exec() == QDialog.DialogCode.Accepted
         check_box_options = [check_box.isChecked() for check_box in self.check_boxes]
-        return answer, check_box_options
+        ungrouped_options = [check_box.isChecked() for check_box in self.ungrouped_check_boxes]
+        return success, check_box_options, ungrouped_options

@@ -18,7 +18,8 @@ class Tracker:
         video_out: WriteGear = None,
         tracker_name: str = None,
         options: list[bool] = None,
-        verbose=False,
+        verbose: bool = False,
+        save_incidents: bool = False,
     ):
         """
         Args:
@@ -45,9 +46,11 @@ class Tracker:
         self.video_out = video_out
         self.verbose = verbose
         self.tracker_name = tracker_name or "bytetrack.yaml"
-        self.manager = InstrumentManager(
-            incidents_path="materials/out/Incident.txt", video_name="1"
-        )
+        if save_incidents:
+            incidents_path = "materials/out/Incident.txt"
+        else:
+            None
+        self.manager = InstrumentManager(incidents_path=incidents_path, video_name="1")
         self.manager.load_data(data)
 
     def get_model_result(

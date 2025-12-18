@@ -12,7 +12,7 @@ from enum import Enum
 import yaml
 from random_qt_color import get_rand_brush_color
 from graphic_items import NgonItem, ClickableLineItem
-from AI_options import AI_options
+from options_lists import AI_options, additional_options
 
 from video_processing_thread import VideoProcessingThread
 from file_methods import get_user_path_save_last_dir, rec_create_file
@@ -222,7 +222,7 @@ class EditConfigWidget(QWidget):
     video_processor: VideoProcessingThread
     data: list[AbstractTrackObject]
     _video_cap: CamGear
-    processing = pyqtSignal(bool, list)  # show, AI options
+    processing = pyqtSignal(list)  # show, AI options
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -545,7 +545,8 @@ class EditConfigWidget(QWidget):
 
     def process(self):
         dialog = Dialog(self, "Show processing?")
-        dialog.set_check_box_variants(AI_options, True)
+        dialog.add_check_box_variants(AI_options, True)
+        dialog.add_ungrouped_check_box_variants(additional_options)
 
         saved_options_path = "GUI/user_files/last_checkbox_options.yaml"
         rec_create_file(saved_options_path)
@@ -554,8 +555,12 @@ class EditConfigWidget(QWidget):
             if not saved_options is None:
                 dialog.set_check_box_states(saved_options)
 
-        show, options = dialog.get_answer()
+        success, options, add_options = dialog.get_answer()
+        if not success:
+            return
         with open(saved_options_path, "w") as file:
-            yaml.safe_dump(options, file)
+            to_dump = options
+            to_dump.extend(add_options)
+            yaml.safe_dump(to_dump, file)
 
-        self.processing.emit(show, options[1:])
+        self.processing.emit(options[1:])

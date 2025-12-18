@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from source.tracker import Tracker
 from source.track_objects import AbstractTrackObject
+from options_lists import additional_options, AI_options
 
 
 class VideoProcessingThread(QThread):
@@ -54,13 +55,22 @@ class VideoProcessingThread(QThread):
             "-input_framerate": 25,
             "-vcodec": "libx264",  # Кодек для MP4
         }
-        writer = WriteGear(
-            output=f"materials/out/{id(self)}.avi",
-            compression_mode=False,
-            **output_params,
-        )
+        if self.options[-2]:
+            writer = WriteGear(
+                output=f"materials/out/{id(self)}.avi",
+                compression_mode=False,
+                **output_params,
+            )
+        else:
+            writer = None
+
         try:
-            tracker = Tracker(self.data, video_out=writer, options=self.options)
+            tracker = Tracker(
+                self.data,
+                video_out=writer,
+                options=self.options[: -len(additional_options)],
+                save_incidents=self.options[len(AI_options) + 1],
+            )
             _video_cap = CamGear(source=(self.path), logging=True).start()
 
             while self._is_running:

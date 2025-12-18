@@ -218,32 +218,26 @@ class EditConfigWindow(QMainWindow):
 
             self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
 
-    def process(
-        self,
-        show: bool = True,
-        options: list[bool] = None,
-        path: str = None,
-        data: list = None,
-    ):
+    def process(self, options: list[bool] = None):
         self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
-        if not show:
-            self.hidden_processors.append(
-                VideoProcessingThread(
-                    False,
-                    path or self.ui.edit_config_widget.path,
-                    (
-                        self.ui.edit_config_widget.height(),
-                        self.ui.edit_config_widget.width(),
-                    ),
-                    data or self.ui.edit_config_widget.data,
-                    options,
-                    parent=self,
-                )
-            )
-            self.hidden_processors[-1].setObjectName(
-                f"VideoProcessingThread in EditConfigWindowid=-{len(self.hidden_processors)}"
-            )
-            return
+        # if not show:
+        #     self.hidden_processors.append(
+        #         VideoProcessingThread(
+        #             False,
+        #             path or self.ui.edit_config_widget.path,
+        #             (
+        #                 self.ui.edit_config_widget.height(),
+        #                 self.ui.edit_config_widget.width(),
+        #             ),
+        #             data or self.ui.edit_config_widget.data,
+        #             options,
+        #             parent=self,
+        #         )
+        #     )
+        #     self.hidden_processors[-1].setObjectName(
+        #         f"VideoProcessingThread in EditConfigWindowid=-{len(self.hidden_processors)}"
+        #     )
+        #     return
 
         self.add_viewer(options)
 
@@ -291,12 +285,7 @@ class EditConfigWindow(QMainWindow):
         for viewer_params in session:
             self.ui.edit_config_widget.set_path(viewer_params["path"])
             self.ui.edit_config_widget.construct_data(viewer_params["data"])
-            self.process(
-                True,
-                viewer_params["options"],
-                viewer_params["path"],
-                viewer_params["data"],
-            )
+            self.process(viewer_params["options"])
         self.ui.stacked_widget.setCurrentIndex(1)
         return True
 
