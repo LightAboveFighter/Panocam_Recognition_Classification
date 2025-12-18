@@ -70,7 +70,7 @@ class InstrumentManager:
     def add_instrument(self, border: Border, detect_window: DetectWindow):
         self.objs[border.room_id] = (border, detect_window)
 
-    def update(self, im: np.ndarray, ids_points: list[tuple[int, tuple[float]]]):
+    def _update(self, im: np.ndarray, ids_points: list[tuple[int, tuple[float]]]):
         for obj in self.objs.values():
             obj[0].update(ids_points)
             if obj[1] is None:
@@ -96,7 +96,15 @@ class InstrumentManager:
             )
             self.incident_id += 1
 
-    def draw(self, im: np.ndarray) -> np.ndarray:
+    def draw_elements(self, im: np.ndarray) -> np.ndarray:
+        frame_out = im.copy()
+        for obj in self.objs.values():
+            frame_out = obj[0].draw(frame_out)
+            frame_out = obj[1].draw(frame_out)
+
+        return frame_out
+
+    def update_draw_incidents_lamp(self, im: np.ndarray) -> np.ndarray:
 
         incident_level = IncidentLevel.NO_INCIDENT
         for obj in self.objs.values():

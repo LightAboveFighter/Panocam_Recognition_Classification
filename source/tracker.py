@@ -131,6 +131,38 @@ class Tracker:
 
         return frame_out, data
 
+    def get_frame_to_writer(self, frame_in, frame_info: dict):
+        frame_out = self.manager.draw_elements(frame_in)
+        for key in ["people", "tsds", "bills"]:
+            for p1, p2 in frame_info[key]:
+                x1, y1 = p1
+                x2, y2 = p2
+                frame_out = cv.rectangle(frame_out, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                center = ((x1 + x2) // 2, (y1 + y2) // 2)
+                frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
+
+        for (p1, p2), cloth_name in frame_info["clothes"]:
+            x1, y1 = p1
+            x2, y2 = p2
+            frame_out = cv.rectangle(frame_in, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            center = ((x1 + x2) // 2, (y1 + y2) // 2)
+            frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
+
+            frame_out = cv.putText(
+                frame_out,
+                cloth_name,
+                (
+                    max(0, int(np.mean([x1, x2]) - 30)),
+                    max(0, min(y1, y2) - 15),
+                ),
+                cv.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 0, 0),
+                2,
+            )
+
+        return frame_out
+
     def track_frame(
         self,
         frame: np.ndarray,
@@ -153,6 +185,7 @@ class Tracker:
         frame_info["border_counts"] = self.manager.get_border_counts()
 
         if not self.video_out is None:
-            self.video_out.write(frame_out)
+            frame_to_writer = self.get_frame_to_writer(frame_out.copy(), frame_info)
+            self.video_out.write(frame_to_writer)
 
         return frame_out, frame_info
