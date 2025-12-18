@@ -7,7 +7,13 @@ from pathlib import Path
 from .track_objects import AbstractTrackObject
 
 base = "materials/trained_models/"
-AI_names = [base + "yolo11n-pose", base + "TSD", base + "curtains", base + "bills"]
+AI_names = [
+    base + "yolo11n-pose",  # 0
+    base + "TSD",  # 1
+    base + "curtains",  # 2
+    base + "bills",  # 3
+    base + "clothes",  # 4
+]
 
 
 class Tracker:
@@ -49,7 +55,7 @@ class Tracker:
         if save_incidents:
             incidents_path = "materials/out/Incident.txt"
         else:
-            None
+            incidents_path = None
         self.manager = InstrumentManager(incidents_path=incidents_path, video_name="1")
         self.manager.load_data(data)
 
@@ -57,7 +63,7 @@ class Tracker:
         self, model, name, frame_in, frame_out
     ) -> tuple[np.ndarray, list]:
 
-        data = {"people": [], "tsds": [], "curtains": [], "bills": []}
+        data = {"people": [], "tsds": [], "curtains": [], "bills": [], "clothes": []}
         if name in [*AI_names[:2], AI_names[3]]:
             args = {"show": False, "persist": True, "tracker": self.tracker_name}
             if name == AI_names[3]:
@@ -113,6 +119,15 @@ class Tracker:
                 data["curtains"].append(
                     (results[0].probs.top1, id)
                 )  # {0: 'closed', 1: 'open'}
+        elif name == AI_names[4]:
+            results = model.predict(frame_in, verbose=self.verbose)
+            for result in results:
+                for box in result.boxes:
+                    x1, y1, x2, y2 = list(map(int, box.xyxy[0].tolist()))
+
+                    cls_id = int(box.cls[0])
+                    cls_name = model.names[cls_id]
+                    data["clothes"].append(([[x1, y1], [x2, y2]], cls_name))
 
         return frame_out, data
 
@@ -126,6 +141,7 @@ class Tracker:
             "tsds": [],
             "curtains": [],
             "bills": [],
+            "clothes": [],
         }
         for model, name in zip(self.models, AI_names):
             if model is None:

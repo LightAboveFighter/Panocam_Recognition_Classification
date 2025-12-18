@@ -1,6 +1,4 @@
-from PyQt6.QtWidgets import (
-    QGraphicsItem,
-)
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsTextItem
 import math
 from PyQt6.QtCore import QRectF, QPointF, Qt, pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QPainterPath, QBrush, QPen, QColor, QPainterPathStroker
@@ -354,3 +352,29 @@ class TrackGraphicItem(QGraphicsItem):
     def setBrush(self, brush):
         self.brush = brush
         self.update()
+
+
+class TextGraphicItem(QGraphicsTextItem):
+
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent=parent)
+        self.setPlainText(text)
+        self.show()
+
+    def setValidPos(self, p1: list[int], p2: list[int], dx: int, dy: int, scene):
+        """move item inside upper point of Rect(p1, p2)"""
+
+        scene_x1, scene_y1, scene_x2, scene_y2 = scene.sceneRect().getCoords()
+        scene_top_y, _ = sorted([scene_y1, scene_y2])
+        scene_left_x, scene_right_x = sorted([scene_x1, scene_x2])
+
+        self.setPos(
+            min(scene_right_x, max(scene_left_x, p1[0] + dx)),
+            max(scene_top_y, min(p1[1], p2[1]) + dy),
+        )
+
+    def setFontAndColor(self, point_size: int, color: QColor):
+        self.setDefaultTextColor(color)
+        font = self.font()
+        font.setPointSize(point_size)
+        self.setFont(font)

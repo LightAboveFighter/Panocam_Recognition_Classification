@@ -1,5 +1,9 @@
 from PyQt6.QtGui import QPen, QBrush, QColor
-from graphic_items import TrackGraphicItem, AbstractActivatedIdGraphicsItem
+from graphic_items import (
+    TrackGraphicItem,
+    AbstractActivatedIdGraphicsItem,
+    TextGraphicItem,
+)
 from PyQt6.QtWidgets import QGraphicsScene, QGraphicsTextItem
 from random_qt_color import get_rand_brush_color
 
@@ -28,6 +32,7 @@ class ItemsManager:
             "curtains": [],
             "bills": [],
             "border_counts": [],
+            "clothes": [],
         }
         self.static_items = {}
         self.scene = scene
@@ -43,6 +48,34 @@ class ItemsManager:
             else:
                 self.items[key][i].setRect(*p1, *p2)
                 self.items[key][i].show()
+
+        for i in range(
+            len(data[key]),
+            len(self.items[key]),
+        ):
+            self.items[key][i].hide()
+
+    def _update_texts(
+        self,
+        data: dict,
+        key: str,
+        margins_x: list[int],
+        margins_y: list[int],
+        color: QColor,
+    ):
+
+        for i, (points, cloth_name) in enumerate(data[key]):
+            p1, p2 = points[0], points[1]
+            if i >= len(self.items[key]):
+                item = TextGraphicItem(cloth_name)
+                item.setFontAndColor(20, color)
+                item.setValidPos(p1, p2, margins_x[i], margins_y[i], self.scene)
+                self.items[key].append(item)
+                self.scene.addItem(item)
+            else:
+                item = self.items[key][i]
+                item.setValidPos(p1, p2, margins_x[i], margins_y[i], self.scene)
+                item.show()
 
         for i in range(
             len(data[key]),
@@ -78,27 +111,18 @@ class ItemsManager:
             item.setBrush(brush)
             item_type = 1
         else:
-            count_item = QGraphicsTextItem("0")
-            count_item.setDefaultTextColor(QColor("black"))
-            font = count_item.font()
-            font.setPointSize(30)
-            count_item.setFont(font)
+            count_item = TextGraphicItem("0")
+            count_item.setFontAndColor(30, QColor("black"))
             p1, p2 = (
                 track_object.get_dict()["point1"],
                 track_object.get_dict()["point2"],
             )
-            scene_x1, scene_y1, scene_x2, scene_y2 = self.scene.sceneRect().getCoords()
-            scene_top_y, _ = sorted([scene_y1, scene_y2])
-            scene_left_x, scene_right_x = sorted([scene_x1, scene_x2])
             if p1[0] < p2[0]:
                 margin = 30
             else:
                 margin = -30
+            count_item.setValidPos(p1, p2, margin, -40)
 
-            count_item.setPos(
-                min(scene_right_x, max(scene_left_x, p1[0] + margin)),
-                max(scene_top_y, min(p1[1], p2[1]) - 40),
-            )
             self.static_items[id][2] = count_item
             self.scene.addItem(count_item)
         item.setPen(pen)
@@ -112,6 +136,21 @@ class ItemsManager:
 
         for key in ["people", "tsds", "bills"]:
             self._update_rects(data, key)
+
+        self._update_rects(
+            {key: [[points[0], points[1]] for points, _ in data["clothes"]]}, key
+        )
+        margins_x = []
+        margins_y = []
+        for xyxy, _ in data["clothes"]:
+            p1, p2 = xyxy[0], xyxy[1]
+            if p1[0] < p2[0]:
+                margins_x.append(30)
+            else:
+                margins_x.append(-30)
+            margins_y.append(-40)
+        self._update_texts(data, "clothes", margins_x, margins_y, QColor("red"))
+
         detect_windows_colours = {}
         for val, id in data["curtains"]:
             if val == 0:
