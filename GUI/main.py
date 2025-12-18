@@ -313,7 +313,7 @@ class ExportModelsThread(QThread):
                     step_model.export(
                         format="engine",
                         half=False,
-                        imt8=False,
+                        int8=False,
                         dynamic=True,
                         simplify=True,
                         opset=17,
@@ -324,7 +324,7 @@ class ExportModelsThread(QThread):
                 if failed:
                     step_model.export(
                         format="onnx",
-                        fp16_mode=False,
+                        half=False,
                         int8_mode=False,
                         dynamic=True,
                         simplify=True,
@@ -336,8 +336,8 @@ class ExportModelsThread(QThread):
                 step_model = YOLO(model_name + ".pt")
                 step_model.export(
                     format="onnx",
-                    fp16_mode=False,
-                    int8_mode=False,
+                    half=False,
+                    int8=False,
                     dynamic=True,
                     simplify=True,
                     opset=17,
