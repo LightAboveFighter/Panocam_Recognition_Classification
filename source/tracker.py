@@ -14,7 +14,7 @@ AI_names = [
     base + "bills",  # 3
     base + "clothes",  # 4
     base + "cash_register",  # 5
-    # base + "tags",  # 6
+    base + "tags",  # 6
 ]
 
 
@@ -71,12 +71,28 @@ class Tracker:
         self, model, name, frame_in, frame_out
     ) -> tuple[np.ndarray, list]:
 
-        data = {"people": [], "tsds": [], "curtains": [], "bills": [], "clothes": []}
-        if name in [*AI_names[:2], AI_names[3]]:
-            args = {"show": False, "persist": True, "tracker": self.tracker_name}
-            if name == AI_names[3]:
-                args["conf"] = 0.001
-            results = model.track(frame_in, verbose=self.verbose, **args)
+        data = {
+            "people": [],
+            "tsds": [],
+            "curtains": [],
+            "bills": [],
+            "clothes": [],
+            "cash_registers": [],
+            "tags": [],
+        }
+        if name in [*AI_names[:2], AI_names[3], *AI_names[5:7]]:
+            args = {
+                "show": False,
+                "persist": True,
+            }  # "tracker": self.tracker_name
+            if name in [AI_names[3], *AI_names[5:7]]:
+                results = model.predict(
+                    frame_in, stream=True, conf=0.25, iou=0.5, verbose=self.verbose
+                )
+            else:
+                results = model.track(
+                    frame_in, stream=True, verbose=self.verbose, **args
+                )
 
             for result in results:
                 people_count = 0
@@ -108,6 +124,8 @@ class Tracker:
                             data["cash_registers"].append(
                                 ([[x1, y1], [x2, y2]], model.names[int(box.cls[0])])
                             )
+                        if name == AI_names[6]:
+                            data["tags"].append([[x1, y1], [x2, y2]])
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
 
                         if ids is not None and name == AI_names[0]:
@@ -145,7 +163,7 @@ class Tracker:
 
     def get_frame_to_writer(self, frame_in, frame_info: dict):
         frame_out = self.manager.draw_elements(frame_in)
-        for key in ["people", "tsds", "bills"]:
+        for key in ["people", "tsds", "bills", "tags"]:
             for p1, p2 in frame_info[key]:
                 x1, y1 = p1
                 x2, y2 = p2
@@ -153,25 +171,26 @@ class Tracker:
                 center = ((x1 + x2) // 2, (y1 + y2) // 2)
                 frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
 
-        for (p1, p2), cloth_name in frame_info["clothes"]:
-            x1, y1 = p1
-            x2, y2 = p2
-            frame_out = cv.rectangle(frame_in, (x1, y1), (x2, y2), (0, 0, 255), 2)
-            center = ((x1 + x2) // 2, (y1 + y2) // 2)
-            frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
+        for key in ["clothes", "cash_registers"]:
+            for (p1, p2), class_name in frame_info[key]:
+                x1, y1 = p1
+                x2, y2 = p2
+                frame_out = cv.rectangle(frame_in, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                center = ((x1 + x2) // 2, (y1 + y2) // 2)
+                frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
 
-            frame_out = cv.putText(
-                frame_out,
-                cloth_name,
-                (
-                    max(0, int(np.mean([x1, x2]) - 30)),
-                    max(0, min(y1, y2) - 15),
-                ),
-                cv.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 0),
-                2,
-            )
+                frame_out = cv.putText(
+                    frame_out,
+                    class_name,
+                    (
+                        max(0, int(np.mean([x1, x2]) - 30)),
+                        max(0, min(y1, y2) - 15),
+                    ),
+                    cv.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 0, 0),
+                    2,
+                )
 
         return frame_out
 
@@ -187,7 +206,7 @@ class Tracker:
             "bills": [],
             "clothes": [],
             "cash_registers": [],
-            # "tags": [],
+            "tags": [],
         }
         for model, name in zip(self.models, AI_names):
             if model is None:

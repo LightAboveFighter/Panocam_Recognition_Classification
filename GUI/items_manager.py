@@ -34,7 +34,7 @@ class ItemsManager:
             "clothes_texts": [],
             "cash_registers_rects": [],
             "cash_registers_texts": [],
-            # "tags": []
+            "tags_rects": [],
         }
         self.static_items = {}
         self.scene = scene
@@ -136,7 +136,7 @@ class ItemsManager:
 
     def update(self, data: dict):
 
-        for key in ["people", "tsds", "bills"]:
+        for key in ["people", "tsds", "bills", "tags"]:
             self._update_rects(data, key)
 
         self._update_rects(
