@@ -27,12 +27,14 @@ class ItemsManager:
         }
         self.brushes = {"filled_red_circle": QBrush(QColor(255, 0, 0, 0))}
         self.items = {
-            "people": [],
-            "tsds": [],
-            "curtains": [],
-            "bills": [],
-            "border_counts": [],
-            "clothes": [],
+            "people_rects": [],
+            "tsds_rects": [],
+            "bills_rects": [],
+            "clothes_rects": [],
+            "clothes_texts": [],
+            "cash_registers_rects": [],
+            "cash_registers_texts": [],
+            # "tags": []
         }
         self.static_items = {}
         self.scene = scene
@@ -41,19 +43,19 @@ class ItemsManager:
 
         for i, points in enumerate(data[key]):
             p1, p2 = points
-            if i >= len(self.items[key]):
+            if i >= len(self.items[key + "_rects"]):
                 item = TrackGraphicItem(*p1, *p2, parent=None)
-                self.items[key].append(item)
+                self.items[key + "_rects"].append(item)
                 self.scene.addItem(item)
             else:
-                self.items[key][i].setRect(*p1, *p2)
-                self.items[key][i].show()
+                self.items[key + "_rects"][i].setRect(*p1, *p2)
+                self.items[key + "_rects"][i].show()
 
         for i in range(
             len(data[key]),
-            len(self.items[key]),
+            len(self.items[key + "_rects"]),
         ):
-            self.items[key][i].hide()
+            self.items[key + "_rects"][i].hide()
 
     def _update_texts(
         self,
@@ -64,24 +66,24 @@ class ItemsManager:
         color: QColor,
     ):
 
-        for i, (points, cloth_name) in enumerate(data[key]):
+        for i, (points, text) in enumerate(data[key]):
             p1, p2 = points[0], points[1]
-            if i >= len(self.items[key]):
-                item = TextGraphicItem(cloth_name)
+            if i >= len(self.items[key + "_texts"]):
+                item = TextGraphicItem(text)
                 item.setFontAndColor(20, color)
                 item.setValidPos(p1, p2, margins_x[i], margins_y[i], self.scene)
-                self.items[key].append(item)
+                self.items[key + "_texts"].append(item)
                 self.scene.addItem(item)
             else:
-                item = self.items[key][i]
+                item = self.items[key + "_texts"][i]
                 item.setValidPos(p1, p2, margins_x[i], margins_y[i], self.scene)
                 item.show()
 
         for i in range(
             len(data[key]),
-            len(self.items[key]),
+            len(self.items[key + "_texts"]),
         ):
-            self.items[key][i].hide()
+            self.items[key + "_texts"][i].hide()
 
     def _update_static_colors(self, data: dict[int, dict]):
         """
@@ -138,7 +140,16 @@ class ItemsManager:
             self._update_rects(data, key)
 
         self._update_rects(
-            {key: [[points[0], points[1]] for points, _ in data["clothes"]]}, key
+            {"clothes": [[points[0], points[1]] for points, _ in data["clothes"]]},
+            "clothes",
+        )
+        self._update_rects(
+            {
+                "cash_registers": [
+                    [points[0], points[1]] for points, _ in data["cash_registers"]
+                ]
+            },
+            "cash_registers",
         )
         margins_x = []
         margins_y = []
@@ -150,6 +161,17 @@ class ItemsManager:
                 margins_x.append(-30)
             margins_y.append(-40)
         self._update_texts(data, "clothes", margins_x, margins_y, QColor("red"))
+
+        margins_x = []
+        margins_y = []
+        for xyxy, _ in data["cash_registers"]:
+            p1, p2 = xyxy[0], xyxy[1]
+            if p1[0] < p2[0]:
+                margins_x.append(30)
+            else:
+                margins_x.append(-30)
+            margins_y.append(-40)
+        self._update_texts(data, "cash_registers", margins_x, margins_y, QColor("red"))
 
         detect_windows_colours = {}
         for val, id in data["curtains"]:

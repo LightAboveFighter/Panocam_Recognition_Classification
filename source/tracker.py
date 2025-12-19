@@ -13,6 +13,8 @@ AI_names = [
     base + "curtains",  # 2
     base + "bills",  # 3
     base + "clothes",  # 4
+    base + "cash_register",  # 5
+    # base + "tags",  # 6
 ]
 
 
@@ -81,7 +83,7 @@ class Tracker:
                 if name == AI_names[0]:
                     point_update_pack = []
                 if result.boxes is not None and len(result.boxes) > 0:
-                    boxes = result.boxes.xyxy.cpu().numpy()
+                    boxes = result.boxes
                     ids = (
                         result.boxes.id.cpu().numpy()
                         if result.boxes.id is not None
@@ -94,7 +96,7 @@ class Tracker:
                     for i, box in enumerate(boxes):
 
                         people_count += 1
-                        x1, y1, x2, y2 = list(map(int, box.astype(int)))
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
 
                         if name == AI_names[0]:
                             data["people"].append([[x1, y1], [x2, y2]])
@@ -102,7 +104,10 @@ class Tracker:
                             data["tsds"].append([[x1, y1], [x2, y2]])
                         if name == AI_names[3]:
                             data["bills"].append([[x1, y1], [x2, y2]])
-
+                        if name == AI_names[5]:
+                            data["cash_registers"].append(
+                                ([[x1, y1], [x2, y2]], model.names[int(box.cls[0])])
+                            )
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
 
                         if ids is not None and name == AI_names[0]:
@@ -124,13 +129,13 @@ class Tracker:
                     )
         elif name == AI_names[2]:
             data["curtains"].extend(
-                self.manager.get_detect_windows_states() # (state, id)
+                self.manager.get_detect_windows_states()  # (state, id)
             )  # state: {0: 'closed', 1: 'open'}
         elif name == AI_names[4]:
-            results = model.predict(frame_in, verbose=self.verbose)
+            results = model.predict(frame_in, stream=True, verbose=self.verbose)
             for result in results:
                 for box in result.boxes:
-                    x1, y1, x2, y2 = list(map(int, box.xyxy[0].tolist()))
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
 
                     cls_id = int(box.cls[0])
                     cls_name = model.names[cls_id]
@@ -181,6 +186,8 @@ class Tracker:
             "curtains": [],
             "bills": [],
             "clothes": [],
+            "cash_registers": [],
+            # "tags": [],
         }
         for model, name in zip(self.models, AI_names):
             if model is None:
