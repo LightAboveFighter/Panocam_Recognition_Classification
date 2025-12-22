@@ -314,7 +314,7 @@ class ExportModelsThread(QThread):
                     step_model.export(
                         format="onnx",
                         half=False,
-                        int8_mode=False,
+                        int8=False,
                         dynamic=True,
                         simplify=True,
                         opset=17,
