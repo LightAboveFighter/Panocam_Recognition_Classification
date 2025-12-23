@@ -43,6 +43,37 @@ class ScrollBarWheelFilter(QObject):
         return super().eventFilter(obj, event)
 
 
+class ResizingGraphicsView(QGraphicsView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
+    def wheelEvent(self, event):
+        zoom_factor = 1.15
+        max_scale = 5.0
+        min_scale = 1.0
+
+        current_scale = self.transform().m11()
+
+        if event.angleDelta().y() > 0:
+            factor = zoom_factor
+        else:
+            factor = 1.0 / zoom_factor
+
+        new_scale = current_scale * factor
+
+        if new_scale < min_scale or new_scale > max_scale:
+            event.ignore()
+            return
+
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
+        self.scale(factor, factor)
+        event.accept()
+
+
 class DrawableGraphicsScene(QGraphicsScene):
     detect_window_completed = pyqtSignal(
         int, int, int, int, int, int, int, int
@@ -302,6 +333,12 @@ class EditConfigWidget(QWidget):
             return
 
         self.curr_scale = new_scale
+        self.ui.frame_viewer.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        self.ui.frame_viewer.setResizeAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
         self.ui.frame_viewer.scale(factor, factor)
         event.accept()
 
@@ -343,6 +380,12 @@ class EditConfigWidget(QWidget):
     def stop_drawing(self):
         self.set_drag(True)
         self.ui.frame_viewer.setMouseTracking(False)
+        self.ui.frame_viewer.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        self.ui.frame_viewer.setResizeAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
 
     def get_detect_window(
         self,

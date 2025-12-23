@@ -62,6 +62,10 @@ class AbstractActivatedIdGraphicsItem(QGraphicsItem):
             Qt.MouseButton.LeftButton if enabled else Qt.MouseButton.NoButton
         )
 
+    def wheelEvent(self, event):
+        event.ignore()
+        return super().wheelEvent(event)
+
 
 class ClickableLineItem(AbstractActivatedIdGraphicsItem):
 
@@ -353,6 +357,10 @@ class TrackGraphicItem(QGraphicsItem):
         self.brush = brush
         self.update()
 
+    def wheelEvent(self, event):
+        event.ignore()
+        return super().wheelEvent(event)
+
 
 class TextGraphicItem(QGraphicsTextItem):
 
@@ -390,3 +398,7 @@ class TextGraphicItem(QGraphicsTextItem):
         font = self.font()
         font.setPointSize(point_size)
         self.setFont(font)
+
+    def wheelEvent(self, event):
+        event.ignore()
+        return super().wheelEvent(event)
