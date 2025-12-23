@@ -330,10 +330,12 @@ class StartPage(QMainWindow):
         self.ui.button_load_video.clicked.connect(self.open_video_file)
         self.ui.link_video_edit.enterKeyPressed.connect(self.view_frame_to_config)
         self.ui.load_session_button.clicked.connect(self.load_session)
+        self.ui.button_update_models.clicked.connect(self.update_models)
         self.ui.error_message.setVisible(False)
         self.aspect_ratio = None
         self.view_edit_window = None
         self._exporting_thread = ExportModelsThread()
+        self._exporting_thread.finished.connect(self.enable_update_models_button)
         self._exporting_thread.start()
 
     def set_view_edit_window(self):
@@ -386,7 +388,21 @@ class StartPage(QMainWindow):
     def hide(self):
         self.ui.error_message.hide()
         self.ui.link_video_edit.setText("")
+        self.ui.button_update_models.hide()
         return super().hide()
+
+    def enable_update_models_button(self):
+        self.ui.button_update_models.setEnabled(True)
+
+    def update_models(self):
+        for path in Path("materials/trained_models").glob("*.onnx"):
+            path.unlink()
+            print(f"Deleted {path}")
+        for path in Path("materials/trained_models").glob("*.engine"):
+            path.unlink()
+            print(f"Deleted {path}")
+        self._exporting_thread.start()
+        self.ui.button_update_models.setEnabled(False)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'start_page.ui'
+# Form implementation generated from reading ui file './start_page.ui'
 #
 # Created by: PyQt6 UI code generator 6.9.1
 #
@@ -90,6 +90,18 @@ class Ui_MainWindow(object):
         self.load_session_button = QtWidgets.QPushButton(parent=self.centralwidget)
         self.load_session_button.setObjectName("load_session_button")
         self.gridLayout.addWidget(self.load_session_button, 2, 1, 1, 1)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout.addItem(spacerItem4)
+        self.button_update_models = QtWidgets.QPushButton(parent=self.centralwidget)
+        self.button_update_models.setEnabled(False)
+        self.button_update_models.setDefault(False)
+        self.button_update_models.setObjectName("button_update_models")
+        self.horizontalLayout.addWidget(self.button_update_models)
+        self.horizontalLayout.setStretch(0, 10)
+        self.horizontalLayout.setStretch(1, 1)
+        self.gridLayout.addLayout(self.horizontalLayout, 5, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 2)
         self.gridLayout.setColumnStretch(1, 3)
         self.gridLayout.setColumnStretch(2, 2)
@@ -117,6 +129,7 @@ class Ui_MainWindow(object):
         self.button_load_video.setText(_translate("MainWindow", "Load video"))
         self.link_video_edit.setToolTip(_translate("MainWindow", "video link"))
         self.load_session_button.setText(_translate("MainWindow", "Load session"))
+        self.button_update_models.setText(_translate("MainWindow", "Update models"))
 from inputtextwidget import InputTextWidget
 
 
