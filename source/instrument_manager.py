@@ -1,8 +1,6 @@
 from .track_objects import (
-    Border,
     IncidentLevel,
     DetectWindow,
-    AbstractTrackObject,
 )
 import yaml
 import numpy as np
@@ -13,7 +11,7 @@ from ultralytics import YOLO
 
 
 class InstrumentManager:
-    objs = dict[int, tuple[Border, DetectWindow]]
+    objs = dict[int, DetectWindow]
 
     def __init__(
         self,
@@ -57,51 +55,33 @@ class InstrumentManager:
             data = yaml.safe_load(file)
         self.load_data(data)
 
-    def load_data(self, data: list[AbstractTrackObject]):
-        for j in range(len(data)):
-            if data[j].get_type() != "border":
-                continue
-            i = 0
-            # объединяем окна и границы с одинаковыми айди
-            # мы можем иметь линию без окна, но не наоборот
-            window = None
-            while i < len(data):
-                if (
-                    data[i].get_type() == "detect_window"
-                    and data[i].room_id == data[j].room_id
-                ):
-                    window = data[i]
-                i += 1
-                if i == j:
-                    i += 1
+    def load_data(self, data: list[DetectWindow]):
+        self.objs = {obj.room_id: obj for obj in data}
 
-            self.objs[data[j].room_id] = (data[j], window)
-
-    def add_instrument(self, border: Border, detect_window: DetectWindow):
-        self.objs[border.room_id] = (border, detect_window)
+    def add_instrument(self, detect_window: DetectWindow):
+        self.objs[detect_window.room_id] = detect_window
 
     def _update(self, im: np.ndarray, ids_points: list[tuple[int, tuple[float]]]):
-        for obj in self.objs.values():
-            obj[0].update(ids_points)
-            if obj[1] is None:
-                continue
         if not self.curtains_model is None:
             for region, id in self.get_detect_frames(im):
-                self.objs[id][1].update(self.curtains_model, region)
+                self.objs[id].update(ids_points, self.curtains_model, region)
+        else:
+            for obj in self.objs.values():
+                obj.update(ids_points, None, None)
 
     def write_incidents(self):
 
         for obj in self.objs.values():
-            room_id, incident_levels = obj[0].get_incident()
+            room_id, incident_levels = obj.get_incident()
             act_datetime = datetime.now()
-            if (not obj[1] is None) and obj[0].contain == 0 and obj[1].is_closed > 0.7:
+            if obj.contain == 0 and obj.is_closed:
                 incident_name = "Room is empty and closed"
                 incident_levels[1] = IncidentLevel.CLOSED_EMPTY
             if incident_levels[0] == incident_levels[1]:
                 continue
             if incident_levels[1] != IncidentLevel.CLOSED_EMPTY:
                 incident_name = "People inside: "
-                incident_name += str(obj[0].contain)
+                incident_name += str(obj.contain)
 
             self.incidents_file.write(
                 f"{act_datetime.date()} {str(act_datetime.time())[:-4]} RoomID:{room_id} EventID:{self.incident_id} {incident_name} [{incident_levels[1].value}] {self.video_name}\n"
@@ -111,8 +91,7 @@ class InstrumentManager:
     def draw_elements(self, im: np.ndarray) -> np.ndarray:
         frame_out = im.copy()
         for obj in self.objs.values():
-            frame_out = obj[0].draw(frame_out)
-            frame_out = obj[1].draw(frame_out)
+            frame_out = obj.draw(frame_out)
 
         return frame_out
 
@@ -124,11 +103,11 @@ class InstrumentManager:
         self._update(im, ids_points)
         for obj in self.objs.values():
             incident_level = IncidentLevel(
-                max(incident_level.value, obj[0].incident_level[1].value)
+                max(incident_level.value, obj.incident_level[1].value)
             )
-            if obj[1] is None:
+            if obj is None:
                 continue
-            if obj[1].is_closed and obj[0].contain == 0:
+            if obj.is_closed and obj.contain == 0:
                 incident_level = IncidentLevel.CLOSED_EMPTY
                 break
         if not self.incidents_file is None:
@@ -170,16 +149,15 @@ class InstrumentManager:
         return result
 
     def get_border_counts(self):
-        return [(obj[0].room_id, obj[0].contain) for obj in self.objs.values()]
+        t = [(obj.room_id, obj.contain) for obj in self.objs.values()]
+        return t
 
     def get_detect_frames(self, frame):
 
         for obj in self.objs.values():
-            if obj[1] is None:
+            if obj is None:
                 continue
-            yield self._perspective_correct_quadrilateral(frame, obj[1].xy_s), obj[
-                1
-            ].room_id
+            yield self._perspective_correct_quadrilateral(frame, obj.xy_s), obj.room_id
 
     def get_detect_windows_states(self) -> list[tuple[bool, int]]:
-        return [(not obj[1].is_closed, obj[1].room_id) for obj in self.objs.values()]
+        return [(not obj.is_closed, obj.room_id) for obj in self.objs.values()]

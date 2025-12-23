@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>610</width>
+    <width>616</width>
     <height>475</height>
    </rect>
   </property>
@@ -36,23 +36,9 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="button_add_border">
-         <property name="text">
-          <string>Add Border</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="button_connect_exit">
-         <property name="text">
-          <string>Connect exit</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QPushButton" name="button_add_detect_window">
          <property name="text">
-          <string>Add exit indicator</string>
+          <string>Add exit</string>
          </property>
         </widget>
        </item>

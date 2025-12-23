@@ -1,11 +1,12 @@
-from PyQt6.QtGui import QPen, QBrush, QColor
+from PyQt6.QtGui import QBrush, QColor
 from graphic_items import (
     TrackGraphicItem,
     AbstractActivatedIdGraphicsItem,
     TextGraphicItem,
 )
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsTextItem
+from PyQt6.QtWidgets import QGraphicsScene
 from random_qt_color import get_rand_brush_color
+from PyQt6.QtCore import QTimer
 
 import sys
 import os
@@ -21,10 +22,6 @@ class ItemsManager:
 
     def __init__(self, scene: QGraphicsScene):
 
-        self.pens = {
-            "red_border": QPen(QColor("red")),
-            "filled_red": QPen(QColor(255, 0, 0, 0)),
-        }
         self.brushes = {"filled_red_circle": QBrush(QColor(255, 0, 0, 0))}
         self.items = {
             "people_rects": [],
@@ -89,47 +86,38 @@ class ItemsManager:
         """
         Args: data: dict = {id: (border: None|QColor, detect_window: None|QColor) }
         """
-        for id, (border_color, detect_window_color) in data.items():
+        for id, (brush_color, pen_color) in data.items():
             item_pair = self.static_items[id]
-            if border_color is None:
-                item_pair[0].set_orig_color()
-            else:
-                item_pair[0]._pen.setColor(border_color)
-                item_pair[0]._brush.setColor(border_color)
-            item_pair[0].update()
 
-            if (not detect_window_color is None) and (not item_pair[1] is None):
-                item_pair[1]._pen.setColor(detect_window_color)
-                item_pair[1]._brush.setColor(detect_window_color)
-                item_pair[1].update()
+            if not pen_color is None:
+                item_pair[1]._pen.setColor(pen_color)
+
+            if not brush_color is None:
+                item_pair[1]._brush.setColor(brush_color)
+            item_pair[1].update()
 
     def add_static_item(self, track_object: AbstractTrackObject):
         brush, pen = get_rand_brush_color(alpha=40)
         item = track_object.get_qt_graphic_item()
         id = track_object.room_id
-        item_type = 0
+        item_type = 1
+        item.setBrush(brush)
 
         if id not in self.static_items.keys():
             self.static_items[id] = [None, None, None]
 
-        if track_object.get_type() == "detect_window":
-            item.setBrush(brush)
-            item_type = 1
-        else:
-            count_item = TextGraphicItem("0")
-            count_item.setFontAndColor(30, QColor("black"))
-            p1, p2 = (
-                track_object.get_dict()["point1"],
-                track_object.get_dict()["point2"],
-            )
-            if p1[0] < p2[0]:
-                margin = 30
-            else:
-                margin = -30
-            count_item.setValidPos(p1, p2, margin, -40, self.scene)
+        count_item = TextGraphicItem("0")
+        count_item.setFontAndColor(30, QColor("black"))
+        p1, p2 = (
+            track_object.get_dict()["point2"],
+            track_object.get_dict()["point4"],
+        )
+        QTimer.singleShot(
+            150, lambda: count_item.setValidPos(p1, p2, -30, 30, self.scene)
+        )
 
-            self.static_items[id][2] = count_item
-            self.scene.addItem(count_item)
+        self.static_items[id][2] = count_item
+        self.scene.addItem(count_item)
         item.setPen(pen)
         self.static_items[id][item_type] = item
         self.scene.addItem(item)
@@ -176,23 +164,23 @@ class ItemsManager:
         detect_windows_colours = {}
         for val, id in data["curtains"]:
             if val == 0:
-                colour = QColor(255, 0, 0, 50)
+                color = QColor(255, 0, 0, 50)  # red
             else:
-                colour = QColor(0, 255, 0, 50)
+                color = QColor(0, 255, 0, 50)  # green
             detect_windows_colours[id] = [
-                None,
-                colour,
-            ]  # border, detect_window (colours)
+                color,
+                color,
+            ]  # border, detect_window (colors)
         for id, border_count in data["border_counts"]:
             if self.static_items[id][2].toPlainText() != str(abs(border_count)):
                 color = QColor("white")
             else:
-                color = None
+                color = detect_windows_colours[id][1]
 
             if not id in detect_windows_colours.keys():
                 detect_windows_colours[id] = [color, None]
             else:
-                detect_windows_colours[id][0] = color
+                detect_windows_colours[id][1] = color
             if not color is None:
                 self.static_items[id][2].setPlainText(str(abs(border_count)))
 

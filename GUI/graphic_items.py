@@ -167,14 +167,14 @@ class NgonItem(AbstractActivatedIdGraphicsItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
 
     def get_sorted_points(self):
-        center_x = sum(p.x() for p in self.points) / 4
-        center_y = sum(p.y() for p in self.points) / 4
+        if len(self.points) < 3:
+            return self.points
+
+        center_x = sum(p.x() for p in self.points) / len(self.points)
+        center_y = sum(p.y() for p in self.points) / len(self.points)
 
         def angle_from_center(point):
-            dx = point.x() - center_x
-            dy = point.y() - center_y
-            angle = math.atan2(dy, dx)
-            return angle if angle >= 0 else angle + 2 * math.pi
+            return math.atan2(point.y() - center_y, point.x() - center_x)
 
         return sorted(self.points, key=angle_from_center)
 
@@ -364,14 +364,26 @@ class TextGraphicItem(QGraphicsTextItem):
     def setValidPos(self, p1: list[int], p2: list[int], dx: int, dy: int, scene):
         """move item inside upper point of Rect(p1, p2)"""
 
-        scene_x1, scene_y1, scene_x2, scene_y2 = scene.sceneRect().getCoords()
-        scene_top_y, _ = sorted([scene_y1, scene_y2])
-        scene_left_x, scene_right_x = sorted([scene_x1, scene_x2])
-
-        self.setPos(
-            min(scene_right_x, max(scene_left_x, p1[0] + dx)),
-            max(scene_top_y, min(p1[1], p2[1]) + dy),
+        rect = QRectF(
+            min(p1[0], p2[0]), min(p1[1], p2[1]), abs(p2[0] - p1[0]), abs(p2[1] - p1[1])
         )
+
+        scene_rect = scene.sceneRect()
+
+        pos_x = rect.left() + dx
+        pos_y = rect.top() + dy
+
+        if pos_x < scene_rect.left():
+            pos_x = scene_rect.left()
+        elif pos_x + self.boundingRect().width() > scene_rect.right():
+            pos_x = scene_rect.right() - self.boundingRect().width()
+
+        if pos_y < scene_rect.top():
+            pos_y = scene_rect.top()
+        elif pos_y + self.boundingRect().height() > scene_rect.bottom():
+            pos_y = scene_rect.bottom() - self.boundingRect().height()
+
+        self.setPos(pos_x, pos_y)
 
     def setFontAndColor(self, point_size: int, color: QColor):
         self.setDefaultTextColor(color)
