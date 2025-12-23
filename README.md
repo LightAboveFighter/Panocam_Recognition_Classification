@@ -1,0 +1,1 @@
+After pulling this project, run "git lfs pull"
