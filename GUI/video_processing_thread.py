@@ -2,6 +2,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import numpy as np
 from vidgear.gears import CamGear, WriteGear
 import time
+from pathlib import Path
 
 import sys
 import os
@@ -57,7 +58,7 @@ class VideoProcessingThread(QThread):
         }
         if self.options[-2]:
             writer = WriteGear(
-                output=f"materials/out/",
+                output=str(Path(f"materials/out/{time.thread_time_ns()}.mp4")),
                 compression_mode=False,
                 **output_params,
             )
