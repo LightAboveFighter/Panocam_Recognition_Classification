@@ -220,24 +220,6 @@ class EditConfigWindow(QMainWindow):
 
     def process(self, options: list[bool] = None):
         self.ui.stacked_widget.setCurrentIndex(1)  # viewers page
-        # if not show:
-        #     self.hidden_processors.append(
-        #         VideoProcessingThread(
-        #             False,
-        #             path or self.ui.edit_config_widget.path,
-        #             (
-        #                 self.ui.edit_config_widget.height(),
-        #                 self.ui.edit_config_widget.width(),
-        #             ),
-        #             data or self.ui.edit_config_widget.data,
-        #             options,
-        #             parent=self,
-        #         )
-        #     )
-        #     self.hidden_processors[-1].setObjectName(
-        #         f"VideoProcessingThread in EditConfigWindowid=-{len(self.hidden_processors)}"
-        #     )
-        #     return
 
         self.add_viewer(options)
 

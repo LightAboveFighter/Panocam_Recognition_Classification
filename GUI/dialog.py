@@ -13,8 +13,6 @@ class Dialog(QDialog):
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
 
-        # self.button_box.setText(left_button)
-        # self.button_box.setText(right_button)
         self.ui.label.setText(label or "")
         self.ui.button_box.accepted.connect(self.accept)
         self.ui.button_box.rejected.connect(self.reject)

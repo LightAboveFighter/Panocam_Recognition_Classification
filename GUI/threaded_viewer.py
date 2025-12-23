@@ -3,10 +3,9 @@ from PyQt6.QtWidgets import (
     QGraphicsScene,
     QSizePolicy,
     QPushButton,
-    QGraphicsRectItem,
     QGraphicsItem,
 )
-from PyQt6.QtGui import QPixmap, QImage, QPen, QColor, QPainter
+from PyQt6.QtGui import QPixmap, QImage, QPainter
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from video_processing_thread import VideoProcessingThread
 import cv2 as cv
