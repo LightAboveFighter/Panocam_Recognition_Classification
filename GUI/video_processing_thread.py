@@ -57,7 +57,7 @@ class VideoProcessingThread(QThread):
         }
         if self.options[-2]:
             writer = WriteGear(
-                output=f"materials/out/{id(self)}.avi",
+                output=f"materials/out/",
                 compression_mode=False,
                 **output_params,
             )
