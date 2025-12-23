@@ -276,7 +276,10 @@ class ExportModelsThread(QThread):
     def run(self):
         if cuda.is_available():
             for model_name in AI_names:
-                if Path(model_name + ".engine").exists():
+                if (
+                    Path(model_name + ".engine").exists()
+                    or Path(model_name + ".onnx").exists()
+                ):
                     continue
                 step_model = YOLO(model_name + ".pt")
                 failed = False
