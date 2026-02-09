@@ -5,6 +5,7 @@ import numpy as np
 from vidgear.gears import WriteGear
 from pathlib import Path
 from .track_objects import AbstractTrackObject
+from torch import cuda
 
 base = "materials/trained_models/"
 AI_names = [
@@ -34,6 +35,8 @@ class Tracker:
             data: list of Borders and DetectWindows
             tracker_name: default is bytetrack.yaml
         """
+        self.device = 'cuda' if cuda.is_available() else 'cpu'
+        print(f"Using device: {self.device}")
 
         self.models = []
         for option, model_name in zip(
@@ -87,11 +90,11 @@ class Tracker:
             }  # "tracker": self.tracker_name
             if name in [AI_names[3], *AI_names[5:7]]:
                 results = model.predict(
-                    frame_in, stream=True, conf=0.25, iou=0.5, verbose=self.verbose
+                    frame_in, stream=True, conf=0.25, iou=0.5, verbose=self.verbose, device=self.device
                 )
             else:
                 results = model.track(
-                    frame_in, stream=True, verbose=self.verbose, **args
+                    frame_in, stream=True, device=self.device, verbose=self.verbose, **args,
                 )
 
             for result in results:
@@ -127,7 +130,6 @@ class Tracker:
                         if name == AI_names[6]:
                             data["tags"].append([[x1, y1], [x2, y2]])
                         center = ((x1 + x2) // 2, (y1 + y2) // 2)
-
                         if ids is not None and name == AI_names[0]:
                             point_update_pack.append((int(ids[i]), center))
 
@@ -150,7 +152,7 @@ class Tracker:
                 self.manager.get_detect_windows_states()  # (state, id)
             )  # state: {0: 'closed', 1: 'open'}
         elif name == AI_names[4]:
-            results = model.predict(frame_in, stream=True, verbose=self.verbose)
+            results = model.predict(frame_in, stream=True, verbose=self.verbose, device=self.device)
             for result in results:
                 for box in result.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
