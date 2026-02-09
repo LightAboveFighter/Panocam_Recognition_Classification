@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 from collections import deque
-from shapely import LineString
+from shapely import LineString, Polygon, Point
 from enum import Enum
 from abc import ABC, abstractmethod
 
@@ -92,27 +92,19 @@ class DetectWindow(AbstractTrackObject):
 
         shift = accuracy // 2
 
-        self.outer_attention_field = (
-            np.array(
-                [
-                    [sorted_p[0][0] - shift, sorted_p[0][1] - shift],
-                    [sorted_p[1][0] + shift, sorted_p[1][1] - shift],
-                    [sorted_p[2][0] + shift, sorted_p[2][1] + shift],
-                    [sorted_p[3][0] - shift, sorted_p[3][1] + shift],
-                ]
-            )
-            .reshape((-1, 1, 2))
-            .astype(np.int32)
-        )
+        outer_attention_field = np.array(
+            [
+                [sorted_p[0][0] - shift, sorted_p[0][1] + shift],
+                [sorted_p[1][0] + shift, sorted_p[1][1] + shift],
+                [sorted_p[2][0] + shift, sorted_p[2][1] - shift],
+                [sorted_p[3][0] - shift, sorted_p[3][1] - shift],
+            ]
+        )  # shift in mathematical meaning, not in geometrical, for shapely
 
         self.xy_s = sorted_p
-        self.exact_attention_field = (
-            np.array(self.xy_s).reshape((-1, 1, 2)).astype(np.int32)
-        )
 
-        self.borders = [
-            LineString([sorted_p[i], sorted_p[(i + 1) % 4]]) for i in range(4)
-        ]
+        self.exact_polygon = Polygon(self.xy_s)
+        self.attention_polygon = Polygon(outer_attention_field)
 
         self.nearby = {}
         self.is_closed = False
@@ -132,43 +124,35 @@ class DetectWindow(AbstractTrackObject):
             "room_id": self.room_id,
         }
 
-    def __point_loc(self, point: tuple[float]) -> int:
-        """return: 1 - point in field_in, -1 - point in field_out, 0 - point in field_surveillance"""
-        point_tuple = (int(point[0]), int(point[1]))
-        inn = cv.pointPolygonTest(self.exact_attention_field, point_tuple, False)
-        outt = cv.pointPolygonTest(self.outer_attention_field, point_tuple, False)
-        if inn >= 0:
-            return -1
-        elif outt >= 0:
+    def __point_loc(self, point: Point) -> int:
+        """return: 1 - point in field_in, -1 - point in field_out"""
+        if self.exact_polygon.contains(point):
             return 1
         else:
-            return 0
-
-    def under_surveillance(self, point: tuple[float]) -> bool:
-        point_tuple = (int(point[0]), int(point[1]))
-        in_outer = (
-            cv.pointPolygonTest(self.outer_attention_field, point_tuple, False) == 1
-        )
-        return in_outer
+            return -1
 
     def people_in_view(self, ids_points: list[tuple[int, tuple[float]]]):
         for id, point in ids_points:
-            if cv.pointPolygonTest(self.exact_attention_field, point, False) == 1:
+            if self.exact_polygon.contains(Point(*point)):
                 return True
         return False
 
-    def __update(self, id: int, point: tuple[float]):
+    def __update(self, id: int, point: Point):
         if not self.nearby.get(id, False):
             self.nearby[id] = deque(maxlen=2)
         self.nearby[id].append(point)
         if len(self.nearby[id]) == 2:
             id_line = LineString(list(self.nearby[id]))
-            intersections = 0
-            for border in self.borders:
-                if id_line.intersects(border):
-                    intersections += 1
-            if intersections == 1:
-                self.contain += self.__point_loc(self.nearby[id][0])
+
+            if id_line.intersects(self.exact_polygon):
+                prev, act = self.__point_loc(self.nearby[id][0]), self.__point_loc(
+                    self.nearby[id][1]
+                )
+                if prev - act == 2:
+                    self.contain -= 1
+                elif prev - act == -2:
+                    self.contain += 1
+
                 self.intersected = True
 
     def update(
@@ -178,10 +162,11 @@ class DetectWindow(AbstractTrackObject):
         region: np.ndarray = None,
     ):
         for id, point in ids_points:
-            if not self.under_surveillance(point):
+            corr_point = Point(*point)
+            if not self.attention_polygon.contains(corr_point):
                 self.nearby.pop(id, None)
             else:
-                self.__update(id, point)
+                self.__update(id, corr_point)
         self.incident_level[0] = self.incident_level[1]
         self.incident_level[1] = IncidentLevel(
             int(self.contain > 1) + int(self.contain > 2)
