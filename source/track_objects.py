@@ -199,10 +199,18 @@ class DetectWindow(AbstractTrackObject):
 
         box_color = (0, 0, 255)  # red
         if self.intersected:
+            box_color = (255, 255, 255)  # white
             self.intersected = False
         elif not self.is_closed:
             box_color = (0, 255, 73)  # green
 
+        poly = cv.fillPoly(
+            np.zeros_like(im),
+            [np.array(self.xy_s).reshape((-1, 1, 2))],
+            (0, 0, 255) if self.is_closed else (0, 255, 73),
+            4,
+        )
+        im = cv.addWeighted(poly, 0.3, im, 1, 0)
         im = cv.polylines(
             im,
             [np.array(self.xy_s).reshape((-1, 1, 2))],
@@ -214,9 +222,9 @@ class DetectWindow(AbstractTrackObject):
         return cv.putText(
             im,
             str(self.contain),
-            self.xy_s[0],
+            self.xy_s[-1],
             cv.FONT_HERSHEY_COMPLEX,
-            2,
-            box_color,
+            1.7,
+            (0, 0, 0),  # black
             2,
         )
