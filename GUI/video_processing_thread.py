@@ -3,6 +3,7 @@ import numpy as np
 from vidgear.gears import CamGear, WriteGear
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import sys
 import os
@@ -65,6 +66,13 @@ class VideoProcessingThread(QThread):
         else:
             writer = None
 
+        valid_online_bases = {'http', 'https', 'rtsp', 'rtmp', 'ftp', 'sftp', 'mms'}
+        try:
+            parsed = urlparse(self.path)
+            is_online = (parsed.scheme in valid_online_bases) and (parsed.netloc != "")
+        except Exception:
+            is_online = False
+
         try:
             tracker = Tracker(
                 self.data,
@@ -78,6 +86,8 @@ class VideoProcessingThread(QThread):
 
                 frame = _video_cap.read()
                 if frame is None:
+                    if not is_online:
+                        break
                     success = False
                     for i in range(5):
                         time.sleep(0.2)
