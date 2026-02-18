@@ -172,7 +172,7 @@ class ItemsManager:
                 color,
             ]  # border, detect_window (colors)
         for id, border_count in data["border_counts"]:
-            if self.static_items[id][2].toPlainText() != str(abs(border_count)):
+            if self.static_items[id][2].toPlainText() != str(border_count):
                 color = QColor("white")
             else:
                 color = detect_windows_colours[id][1]
@@ -182,6 +182,6 @@ class ItemsManager:
             else:
                 detect_windows_colours[id][1] = color
             if not color is None:
-                self.static_items[id][2].setPlainText(str(abs(border_count)))
+                self.static_items[id][2].setPlainText(str(border_count))
 
         self._update_static_colors(detect_windows_colours)

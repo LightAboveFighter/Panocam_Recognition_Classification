@@ -153,6 +153,8 @@ class DetectWindow(AbstractTrackObject):
                 elif prev - act == -2:
                     self.contain += 1
 
+                self.contain = max(self.contain, 0)
+
                 self.intersected = True
 
     def update(
@@ -172,11 +174,14 @@ class DetectWindow(AbstractTrackObject):
             int(self.contain > 1) + int(self.contain > 2)
         )
 
-        if self.people_in_view(ids_points):
+        # if self.people_in_view(ids_points):
+        #     self.is_closed = False
+        #     return region
+        if model is None:
             self.is_closed = False
-            return region
-        results = model.predict(region, task="classify", verbose=False)
-        self.is_closed = not bool(results[0].probs.top1)
+        else:
+            results = model.predict(region, task="classify", verbose=False)
+            self.is_closed = not bool(results[0].probs.top1)
 
         return region
 
