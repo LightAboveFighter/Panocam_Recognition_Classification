@@ -259,7 +259,12 @@ class EditConfigWidget(QWidget):
         self.connection_cooldown = False
 
     def set_path(self, path: str) -> bool:
-        """change frame, delete all previous data"""
+        """Change frame, delete all previous data
+
+        Returns
+        -------------
+        success : bool
+        """
         self.path = path
         try:
             self._video_cap = CamGear(source=path)

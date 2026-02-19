@@ -265,7 +265,8 @@ class EditConfigWindow(QMainWindow):
         self.viewers = []
         self.update_grid_stretch()
         for viewer_params in session:
-            self.ui.edit_config_widget.set_path(viewer_params["path"])
+            if not self.ui.edit_config_widget.set_path(viewer_params["path"]):
+                continue
             self.ui.edit_config_widget.construct_data(viewer_params["data"])
             self.process(viewer_params["options"])
         self.ui.stacked_widget.setCurrentIndex(1)
