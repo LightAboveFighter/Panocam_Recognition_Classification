@@ -66,13 +66,14 @@ class VideoProcessingThread(QThread):
         else:
             writer = None
 
-        valid_online_bases = {'http', 'https', 'rtsp', 'rtmp', 'ftp', 'sftp', 'mms'}
+        valid_online_bases = {"http", "https", "rtsp", "rtmp", "ftp", "sftp", "mms"}
         try:
             parsed = urlparse(self.path)
             is_online = (parsed.scheme in valid_online_bases) and (parsed.netloc != "")
         except Exception:
             is_online = False
 
+        fps = 0.0
         try:
             tracker = Tracker(
                 self.data,
@@ -81,6 +82,10 @@ class VideoProcessingThread(QThread):
                 save_incidents=self.options[len(AI_options) + 1],
             )
             _video_cap = CamGear(source=(self.path), logging=True).start()
+
+            frames_per_second = 0
+            start_time = time.time_ns()
+            diff_time = start_time
 
             while self._is_running:
 
@@ -101,8 +106,16 @@ class VideoProcessingThread(QThread):
                         break
 
                 frame, frame_info = tracker.track_frame(frame)
+                frames_per_second += 1
                 if self.show:
                     self.frame_processed.emit(frame, frame_info)
+
+                diff_time = time.time_ns() - start_time
+                if diff_time >= 1000:
+                    fps = (frames_per_second / diff_time) * 10**9
+                    sys.stdout.write(f"[FPS] {fps:.2f}\r")
+                    start_time = time.time_ns()
+                    frames_per_second = 0
         except Exception as err:
             print(err)
             raise err
@@ -115,5 +128,5 @@ class VideoProcessingThread(QThread):
             if not _video_cap is None:
                 _video_cap.stop()
                 _video_cap = None
-                print("Stopped ", self.path)
+                print(f"Stopped VideoProcessingThread with [FPS] {fps:.2f}:", self.path)
             self.processing_complete.emit()
