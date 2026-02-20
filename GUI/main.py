@@ -269,9 +269,11 @@ class EditConfigWindow(QMainWindow):
                 continue
             self.ui.edit_config_widget.construct_data(viewer_params["data"])
             self.process(viewer_params["options"])
-        self.ui.stacked_widget.setCurrentIndex(1)
+        if len(self.ui.edit_config_widget.data) == 0:
+            return False
+        else:
+            self.ui.stacked_widget.setCurrentIndex(1)
         return True
-
 
 class ExportModelsThread(QThread):
     def run(self):
@@ -349,6 +351,8 @@ class StartPage(QMainWindow):
     def load_session(self):
         self.set_view_edit_window()
         if not self.view_edit_window.load_session():
+            self.ui.error_message.setText(f"Unable to open any files from session file")
+            self.ui.error_message.setVisible(True)
             return
         self.view_edit_window.show()
         self.hide()
