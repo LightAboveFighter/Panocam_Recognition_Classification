@@ -11,12 +11,10 @@ from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QObject, QEvent, QTimer
 from enum import Enum
 import yaml
 from random_qt_color import get_rand_brush_color
-from graphic_items import NgonItem, ClickableLineItem
+from graphic_items import NgonItem
 
 from video_processing_thread import VideoProcessingThread
 from file_methods import get_user_path_save_last_dir
-from vidgear.gears import CamGear
-
 import sys
 import os
 
@@ -27,6 +25,7 @@ from source.track_objects import (
     DetectWindow,
     get_track_object_from_dict,
 )
+from source.threaded_camgear import ThreadedCamGear
 
 
 class ToolType(Enum):
@@ -197,8 +196,10 @@ class EditConfigWidget(QWidget):
 
     video_processor: VideoProcessingThread
     data: list[AbstractTrackObject]
-    _video_cap: CamGear
+    _video_cap: ThreadedCamGear
+    _later_delete_threads: list[ThreadedCamGear]
     processing = pyqtSignal(list)  # show, AI options
+    set_path_succeded = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -257,28 +258,75 @@ class EditConfigWidget(QWidget):
         self.curr_scale = 1.0
         self.exit_connection = []
         self.connection_cooldown = False
+        self._async_scenario = 0
+        self._later_delete_threads = []
 
-    def set_path(self, path: str) -> bool:
+    def closeEvent(self, a0):
+        for cam_thread in self._later_delete_threads:
+            if cam_thread.isRunning():
+                if not cam_thread.wait(20000):
+                    cam_thread.terminate()
+                    cam_thread.wait()
+        self._later_delete_threads.clear()
+        return super().closeEvent(a0)
+    
+    def _remove_deleted_threads(self):
+        idx = []
+        for i, cam_thread in enumerate(self._later_delete_threads):
+            if not cam_thread.isRunning():
+                idx.append(i)
+        for i in idx[::-1]:
+            self._later_delete_threads.pop(i)
+
+    def set_path(self, path: str):
         """Change frame, delete all previous data
 
-        Returns
-        -------------
-        success : bool
+        Emits success of the operation with set_path_succeded(bool) pyqtsignal
         """
+        if self._async_scenario != 0:
+            return
         self.path = path
-        try:
-            self._video_cap = CamGear(source=path)
-        except Exception as err:
-            print(err)
-            return False
         self.data = []
-        im = self._video_cap.read()
-        if not im is None:
-            self.change_frame(im)
-        else:
-            self._video_cap.stop()
-            self._video_cap = None
-        return not im is None
+
+        self._video_cap = ThreadedCamGear(10)
+        self._video_cap.init_succeed.connect(self._finalize1_set_path)
+        self._video_cap.received_frame.connect(self._finalize2_set_path)
+        self._async_scenario = 1
+        self._video_cap.init_cam(source=path)
+
+    def _finalize1_set_path(self, success: bool):
+        async_scenario = self._async_scenario
+        self._async_scenario = 0
+        if async_scenario != 1:
+            return
+
+        if not success:
+            if self._video_cap:
+                self._video_cap.finished.connect(self._remove_deleted_threads)
+                self._later_delete_threads.append(self._video_cap)
+                self._video_cap.stop()
+                self._video_cap = None
+            self.set_path_succeded.emit(False)
+            return
+        
+        self._async_scenario = 2
+        self._video_cap.read()
+
+
+    def _finalize2_set_path(self, frame):
+        async_scenario = self._async_scenario
+        self._async_scenario = 0
+        if async_scenario != 2:
+            return
+        if not frame is None:
+            self.change_frame(frame)
+
+        self._video_cap.finished.connect(self._remove_deleted_threads)
+        self._later_delete_threads.append(self._video_cap)
+        self._video_cap.stop()
+        self._video_cap = None  
+        self.set_path_succeded.emit(not frame is None)
+
 
     def change_frame(self, frame):
         image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)

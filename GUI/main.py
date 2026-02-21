@@ -5,7 +5,7 @@ from pathlib import Path
 from view_edit_window import Ui_MainWindow as EditConfigWindowUi
 from video_processing_thread import VideoProcessingThread
 from threaded_viewer import ThreadedViewer
-from PyQt6.QtCore import QTimer, QThread
+from PyQt6.QtCore import QTimer, QThread, pyqtSignal
 import yaml
 import torch.cuda as cuda
 from ultralytics import YOLO
@@ -24,6 +24,8 @@ class EditConfigWindow(QMainWindow):
     session: list[dict]
     viewers: list[ThreadedViewer]
     hidden_processors: list[VideoProcessingThread]
+    set_path_succeded = pyqtSignal(bool)
+    load_session_succeded = pyqtSignal(bool)
 
     def __init__(self, parent):
         super().__init__(parent=parent)
@@ -31,6 +33,7 @@ class EditConfigWindow(QMainWindow):
         self.ui.setupUi(self)
         self.ui.stacked_widget.setCurrentIndex(0)  # editing page
         self.ui.edit_config_widget.processing.connect(self.process)
+        self.ui.edit_config_widget.set_path_succeded.connect(self._finalize_editconfigwidget_set_path)
         self.ui.add_video_button.clicked.connect(self.show_start_page)
         self.ui.save_session_button.clicked.connect(self.save_session)
         self.ui.load_session_button.clicked.connect(self.load_session)
@@ -39,6 +42,9 @@ class EditConfigWindow(QMainWindow):
         self.viewers = []
         self.saved_viewer_size = None
         self.session = []
+        self._finalize_editconfigwidget_set_path_scenario = 0
+        self._load_session_list = []
+        self._load_session_success = False
 
     def show_start_page(self):
         self.parent().show()
@@ -65,11 +71,49 @@ class EditConfigWindow(QMainWindow):
         """Финальное закрытие после завершения всех потоков"""
         QApplication.quit()
 
-    def set_path(self, path: str) -> bool:
-        success = self.ui.edit_config_widget.set_path(path)
-        if success:
-            self.ui.stacked_widget.setCurrentIndex(0)  # editing page
-        return success
+    def _finalize_editconfigwidget_set_path(self, success: bool):
+        if self._finalize_editconfigwidget_set_path_scenario == 1:
+            self._finalize_editconfigwidget_set_path_scenario = 0
+            if success:
+                self.ui.stacked_widget.setCurrentIndex(0)  # editing page
+            self.set_path_succeded.emit(success)
+            return
+        
+        if self._finalize_editconfigwidget_set_path_scenario == 2:
+
+            if success:
+                self._load_session_success = True
+                self.ui.edit_config_widget.construct_data(self._load_session_list[0]["data"])
+                self.process(self._load_session_list[0]["options"])
+
+            self._load_session_list.pop(0)
+
+            if len(self._load_session_list) == 0:
+                self._finalize_editconfigwidget_set_path_scenario = 0
+                load_session_success = self._load_session_success
+                self._load_session_success = False
+                if not load_session_success:
+                    self.load_session_succeded.emit(False)
+                    return
+                else:
+                    self.ui.stacked_widget.setCurrentIndex(1)
+                self.load_session_succeded.emit(True)
+                return
+
+            self.ui.edit_config_widget.set_path(self._load_session_list[0]["path"])
+            return
+        
+        if self._finalize_editconfigwidget_set_path_scenario == -1:
+            self._finalize_editconfigwidget_set_path_scenario = 0
+            self.load_session_succeded.emit(False)
+
+
+    def set_path(self, path: str):
+        """Emits success of the operation with set_path_succeded(bool) pyqtsignal"""
+        if self._finalize_editconfigwidget_set_path_scenario != 0:
+            return
+        self._finalize_editconfigwidget_set_path_scenario = 1
+        self.ui.edit_config_widget.set_path(path)
 
     def update_grid_stretch(self):
         viewers_count = len(self.viewers)
@@ -239,9 +283,9 @@ class EditConfigWindow(QMainWindow):
         with Path(path).open("w") as file:
             yaml.safe_dump(self.session, file, encoding="utf-8")
 
-    def load_session(self) -> bool:
+    def load_session(self):
         """
-        returns: success
+        Emits success of the operation with load_session_succeded(bool) pyqtsignal
         """
 
         path = get_user_path_save_last_dir(
@@ -256,7 +300,7 @@ class EditConfigWindow(QMainWindow):
             return False
 
         with Path(path).open("r") as file:
-            session = yaml.safe_load(file)
+            self._load_session_list = yaml.safe_load(file)
 
         for i in range(len(self.viewers)):
             self.ui.viewers_grid_layout.removeItem(
@@ -264,16 +308,12 @@ class EditConfigWindow(QMainWindow):
             )
         self.viewers = []
         self.update_grid_stretch()
-        for viewer_params in session:
-            if not self.ui.edit_config_widget.set_path(viewer_params["path"]):
-                continue
-            self.ui.edit_config_widget.construct_data(viewer_params["data"])
-            self.process(viewer_params["options"])
-        if len(self.ui.edit_config_widget.data) == 0:
-            return False
-        else:
-            self.ui.stacked_widget.setCurrentIndex(1)
-        return True
+        if len(self._load_session_list) == 0:
+            self._finalize_editconfigwidget_set_path_scenario = -1
+            return
+        self._finalize_editconfigwidget_set_path_scenario = 2
+        self.ui.edit_config_widget.set_path(self._load_session_list[0]["path"])
+
 
 class ExportModelsThread(QThread):
     def run(self):
@@ -340,22 +380,29 @@ class StartPage(QMainWindow):
         self._exporting_thread = ExportModelsThread()
         self._exporting_thread.finished.connect(self.enable_update_models_button)
         self._exporting_thread.start()
+        self._view_frame_to_config_path = None
 
     def set_view_edit_window(self):
         if self.view_edit_window is None:
             if self.parent() is None:
                 self.view_edit_window = EditConfigWindow(parent=self)
+                self.view_edit_window.set_path_succeded.connect(self._finalize_view_frame_to_config)
+                self.view_edit_window.load_session_succeded.connect(self._finalize_load_session)
             else:
                 self.view_edit_window = self.parent()
 
-    def load_session(self):
-        self.set_view_edit_window()
-        if not self.view_edit_window.load_session():
+    def _finalize_load_session(self, success: bool):
+        if not success:
             self.ui.error_message.setText(f"Unable to open any files from session file")
             self.ui.error_message.setVisible(True)
             return
         self.view_edit_window.show()
         self.hide()
+
+
+    def load_session(self):
+        self.set_view_edit_window()
+        self.view_edit_window.load_session()
 
     def open_video_file(self):
         path = get_user_path_save_last_dir(
@@ -367,18 +414,24 @@ class StartPage(QMainWindow):
         )
 
         self.view_frame_to_config(path)
+    
+    def _finalize_view_frame_to_config(self, success: bool):
+        if success:
+            self.view_edit_window.show()
+            self.hide()
+        else:
+            self.ui.error_message.setText(f"Unable to open {self._view_frame_to_config_path}")
+            self.ui.error_message.setVisible(True)
+            self._view_frame_to_config_path = None
+
 
     def view_frame_to_config(self, path: str = None):
         if len(path) == 0:
             return
 
+        self._view_frame_to_config_path = path
         self.set_view_edit_window()
-        if self.view_edit_window.set_path(path):
-            self.view_edit_window.show()
-            self.hide()
-        else:
-            self.ui.error_message.setText(f"Unable to open {path}")
-            self.ui.error_message.setVisible(True)
+        self.view_edit_window.set_path(path)
 
     def closeEvent(self, event):
 
