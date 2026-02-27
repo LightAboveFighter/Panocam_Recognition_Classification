@@ -177,7 +177,7 @@ class Tracker:
             for (p1, p2), class_name in frame_info[key]:
                 x1, y1 = p1
                 x2, y2 = p2
-                frame_out = cv.rectangle(frame_in, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                frame_out = cv.rectangle(frame_out, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 center = ((x1 + x2) // 2, (y1 + y2) // 2)
                 frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
 
