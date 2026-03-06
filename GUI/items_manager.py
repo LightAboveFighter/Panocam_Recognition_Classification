@@ -32,6 +32,8 @@ class ItemsManager:
             "cash_registers_rects": [],
             "cash_registers_texts": [],
             "tags_rects": [],
+            "bags_rects": [],
+            "bags_texts": []
         }
         self.static_items = {}
         self.scene = scene
@@ -132,6 +134,10 @@ class ItemsManager:
             "clothes",
         )
         self._update_rects(
+            {"bags": [[points[0], points[1]] for points, _ in data["bags"]]},
+            "bags",
+        )
+        self._update_rects(
             {
                 "cash_registers": [
                     [points[0], points[1]] for points, _ in data["cash_registers"]
@@ -149,6 +155,17 @@ class ItemsManager:
                 margins_x.append(-30)
             margins_y.append(-40)
         self._update_texts(data, "clothes", margins_x, margins_y, QColor("red"))
+
+        margins_x = []
+        margins_y = []
+        for xyxy, _ in data["bags"]:
+            p1, p2 = xyxy[0], xyxy[1]
+            if p1[0] < p2[0]:
+                margins_x.append(30)
+            else:
+                margins_x.append(-30)
+            margins_y.append(-40)
+        self._update_texts(data, "bags", margins_x, margins_y, QColor("red"))
 
         margins_x = []
         margins_y = []

@@ -16,6 +16,7 @@ AI_names = [
     base + "clothes",  # 4
     base + "cash_register",  # 5
     base + "tags",  # 6
+    base + "bags",  # 7
 ]
 
 
@@ -35,7 +36,7 @@ class Tracker:
             data: list of Borders and DetectWindows
             tracker_name: default is bytetrack.yaml
         """
-        self.device = 'cuda' if cuda.is_available() else 'cpu'
+        self.device = "cuda" if cuda.is_available() else "cpu"
         print(f"Using device: {self.device}")
 
         self.models = []
@@ -82,6 +83,7 @@ class Tracker:
             "clothes": [],
             "cash_registers": [],
             "tags": [],
+            "bags": [],
         }
         if name in [*AI_names[:2], AI_names[3], *AI_names[5:7]]:
             args = {
@@ -90,11 +92,20 @@ class Tracker:
             }  # "tracker": self.tracker_name
             if name in [AI_names[3], *AI_names[5:7]]:
                 results = model.predict(
-                    frame_in, stream=True, conf=0.25, iou=0.5, verbose=self.verbose, device=self.device
+                    frame_in,
+                    stream=True,
+                    conf=0.25,
+                    iou=0.5,
+                    verbose=self.verbose,
+                    device=self.device,
                 )
             else:
                 results = model.track(
-                    frame_in, stream=True, device=self.device, verbose=self.verbose, **args,
+                    frame_in,
+                    stream=True,
+                    device=self.device,
+                    verbose=self.verbose,
+                    **args,
                 )
 
             for result in results:
@@ -152,15 +163,34 @@ class Tracker:
                 self.manager.get_detect_windows_states()  # (state, id)
             )  # state: {0: 'closed', 1: 'open'}
         elif name == AI_names[4]:
-            results = model.predict(frame_in, stream=True, verbose=self.verbose, device=self.device)
+            results = model.predict(
+                frame_in, stream=True, verbose=self.verbose, device=self.device
+            )
+            res = []
             for result in results:
                 for box in result.boxes:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
 
                     cls_id = int(box.cls[0])
                     cls_name = model.names[cls_id]
-                    data["clothes"].append(([[x1, y1], [x2, y2]], cls_name))
-
+                    res.append(([[x1, y1], [x2, y2]], cls_name))
+            data["clothes"].append(res)
+        elif name == AI_names[7]:
+            results = model.predict(
+                frame_in, stream=True, verbose=self.verbose, device=self.device
+            )
+            for result in results:
+                boxes = result.boxes.xyxy.cpu().numpy()  # координаты [x1, y1, x2, y2]
+                confs = result.boxes.conf.cpu().numpy()  # уверенность
+                class_ids = (
+                    result.boxes.cls.cpu().numpy().astype(int)
+                )  # индексы классов
+                res = []
+                for i, (box, _, cls_id) in enumerate(zip(boxes, confs, class_ids)):
+                    x1, y1, x2, y2 = box
+                    cls_name = result.names[cls_id]
+                    res.append(([[x1, y1], [x2, y2]], cls_name))
+            data["bags"] = res
         return frame_out, data
 
     def get_frame_to_writer(self, frame_in, frame_info: dict):
@@ -173,7 +203,7 @@ class Tracker:
                 center = ((x1 + x2) // 2, (y1 + y2) // 2)
                 frame_out = cv.circle(frame_out, center, 5, (0, 255, 0), -1)
 
-        for key in ["clothes", "cash_registers"]:
+        for key in ["clothes", "cash_registers", "bags"]:
             for (p1, p2), class_name in frame_info[key]:
                 x1, y1 = p1
                 x2, y2 = p2
@@ -209,6 +239,7 @@ class Tracker:
             "clothes": [],
             "cash_registers": [],
             "tags": [],
+            "bags": [],
         }
         for model, name in zip(self.models, AI_names):
             if model is None:
